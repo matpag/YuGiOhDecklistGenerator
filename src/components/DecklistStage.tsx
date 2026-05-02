@@ -347,7 +347,7 @@ function downloadDataUrl(dataUrl: string, fileName: string) {
   link.click();
 }
 
-function outputFileName(row: BatchRow, layers: TemplateLayer[]) {
+function outputFileName(row: BatchRow, layers: TemplateLayer[], rowIndex: number) {
   const textLayerIds = layers
     .filter((layer) => layer.type === "text" && isDynamicLayer(layer))
     .map((layer) => layer.id);
@@ -359,8 +359,9 @@ function outputFileName(row: BatchRow, layers: TemplateLayer[]) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 72);
+  const prefix = String(rowIndex + 1).padStart(2, "0");
 
-  return `${slug || row.name.toLowerCase().replace(/\s+/g, "-")}.png`;
+  return `${prefix}-${slug || row.name.toLowerCase().replace(/\s+/g, "-")}.png`;
 }
 
 interface DecklistStageProps {
@@ -473,7 +474,8 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
     }
 
     async function handleExportCurrent() {
-      const row = batchRows.find((candidate) => candidate.id === selectedBatchRowId);
+      const rowIndex = batchRows.findIndex((candidate) => candidate.id === selectedBatchRowId);
+      const row = rowIndex >= 0 ? batchRows[rowIndex] : null;
 
       if (!row) {
         return;
@@ -482,16 +484,16 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
       const dataUrl = await renderForRow(row.id);
 
       if (dataUrl) {
-        downloadDataUrl(dataUrl, outputFileName(row, template.layers));
+        downloadDataUrl(dataUrl, outputFileName(row, template.layers, rowIndex));
       }
     }
 
     async function handleExportAll() {
-      for (const row of batchRows) {
+      for (const [rowIndex, row] of batchRows.entries()) {
         const dataUrl = await renderForRow(row.id);
 
         if (dataUrl) {
-          downloadDataUrl(dataUrl, outputFileName(row, template.layers));
+          downloadDataUrl(dataUrl, outputFileName(row, template.layers, rowIndex));
           await new Promise((resolve) => window.setTimeout(resolve, 120));
         }
       }
