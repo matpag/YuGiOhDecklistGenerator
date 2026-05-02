@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Eye, FileJson, FolderOpen, Moon, Save, Sun, X } from "lucide-react";
+import { Download, Eye, FileJson, FolderOpen, Moon, Save, SaveAll, Sun, X } from "lucide-react";
 import { DecklistStage } from "./components/DecklistStage";
 import { EditorSidebar } from "./components/EditorSidebar";
 import { RightPanel } from "./components/RightPanel";
@@ -18,6 +18,16 @@ const BUSY_MESSAGES: Record<BusyAction, string> = {
   exporting: "Preparing export...",
 };
 
+const TEMPLATE_PICKER_TYPES: FilePickerAcceptType[] = [
+  {
+    description: "Decklist template",
+    accept: {
+      "application/vnd.dhdecktemplate+zip": [".dhdecktemplate"],
+      "application/json": [".json"],
+    },
+  },
+];
+
 function waitForPaint() {
   return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => {
@@ -26,9 +36,14 @@ function waitForPaint() {
   });
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
+  const [templateFileHandle, setTemplateFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [fontRevision, setFontRevision] = useState(0);
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
@@ -74,7 +89,15 @@ export default function App() {
     return () => window.removeEventListener("decklist-maker:png-preview-ready", handlePreviewReady);
   }, []);
 
-  async function handleOpenTemplate(file: File | undefined) {
+  async function loadTemplateFile(file: File) {
+    const templateDocument = await importTemplateArchive(await file.arrayBuffer());
+    await registerEmbeddedFonts(templateDocument.template.fonts, templateDocument.assets);
+    await document.fonts.ready;
+    loadDocument(templateDocument);
+    setFontRevision((revision) => revision + 1);
+  }
+
+  async function handleOpenTemplateFile(file: File | undefined) {
     if (!file) {
       return;
     }
@@ -83,11 +106,8 @@ export default function App() {
 
     try {
       await waitForPaint();
-      const templateDocument = await importTemplateArchive(await file.arrayBuffer());
-      await registerEmbeddedFonts(templateDocument.template.fonts, templateDocument.assets);
-      await document.fonts.ready;
-      loadDocument(templateDocument);
-      setFontRevision((revision) => revision + 1);
+      await loadTemplateFile(file);
+      setTemplateFileHandle(null);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not open the template.");
     } finally {
@@ -95,20 +115,108 @@ export default function App() {
     }
   }
 
+  async function handleOpenTemplate() {
+    if (!window.showOpenFilePicker) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    setBusyAction("opening");
+
+    try {
+      await waitForPaint();
+      const [fileHandle] = await window.showOpenFilePicker({
+        excludeAcceptAllOption: false,
+        multiple: false,
+        types: TEMPLATE_PICKER_TYPES,
+      });
+
+      if (!fileHandle) {
+        return;
+      }
+
+      await loadTemplateFile(await fileHandle.getFile());
+      setTemplateFileHandle(fileHandle);
+    } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+
+      window.alert(error instanceof Error ? error.message : "Could not open the template.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createTemplateBlob() {
+    const currentState = useProjectStore.getState();
+    const templateDocument = createTemplateDocument(currentState.template, currentState.assets);
+
+    return {
+      blob: await exportTemplateArchive(templateDocument),
+      fileName: templateFileName(currentState.template),
+    };
+  }
+
+  async function writeTemplateFile(fileHandle: FileSystemFileHandle, blob: Blob) {
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  }
+
+  function downloadTemplate(blob: Blob, fileName: string) {
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
   async function handleSaveTemplate() {
     setBusyAction("saving");
 
     try {
       await waitForPaint();
-      const currentState = useProjectStore.getState();
-      const templateDocument = createTemplateDocument(currentState.template, currentState.assets);
-      const blob = await exportTemplateArchive(templateDocument);
-      const link = document.createElement("a");
-      link.download = templateFileName(currentState.template);
-      link.href = URL.createObjectURL(blob);
-      link.click();
-      URL.revokeObjectURL(link.href);
+      const { blob } = await createTemplateBlob();
+
+      if (!templateFileHandle) {
+        await handleSaveTemplateAs();
+        return;
+      }
+
+      await writeTemplateFile(templateFileHandle, blob);
     } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not save the template.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleSaveTemplateAs() {
+    setBusyAction("saving");
+
+    try {
+      await waitForPaint();
+      const { blob, fileName } = await createTemplateBlob();
+
+      if (!window.showSaveFilePicker) {
+        downloadTemplate(blob, fileName);
+        return;
+      }
+
+      const fileHandle = await window.showSaveFilePicker({
+        excludeAcceptAllOption: false,
+        suggestedName: fileName,
+        types: TEMPLATE_PICKER_TYPES,
+      });
+
+      await writeTemplateFile(fileHandle, blob);
+      setTemplateFileHandle(fileHandle);
+    } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+
       window.alert(error instanceof Error ? error.message : "Could not save the template.");
     } finally {
       setBusyAction(null);
@@ -136,7 +244,7 @@ export default function App() {
             type="file"
             accept={TEMPLATE_FILE_ACCEPT}
             onChange={(event) => {
-              void handleOpenTemplate(event.target.files?.[0]);
+              void handleOpenTemplateFile(event.target.files?.[0]);
               event.currentTarget.value = "";
             }}
           />
@@ -144,17 +252,30 @@ export default function App() {
             type="button"
             title="Open template"
             disabled={busyAction !== null}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => void handleOpenTemplate()}
           >
             <FolderOpen size={18} />
           </button>
           <button
             type="button"
-            title="Save template"
+            title={
+              templateFileHandle
+                ? "Save template to the opened file"
+                : "Save template as a new file"
+            }
             disabled={busyAction !== null}
-            onClick={handleSaveTemplate}
+            onClick={() => void handleSaveTemplate()}
           >
             <Save size={18} />
+          </button>
+          <button
+            type="button"
+            title="Save template as"
+            disabled={busyAction !== null}
+            onClick={() => void handleSaveTemplateAs()}
+          >
+            <SaveAll size={18} />
+            As
           </button>
           <button
             type="button"
