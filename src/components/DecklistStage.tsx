@@ -364,6 +364,43 @@ function outputFileName(row: BatchRow, layers: TemplateLayer[], rowIndex: number
   return `${prefix}-${slug || row.name.toLowerCase().replace(/\s+/g, "-")}.png`;
 }
 
+function missingDynamicContentMessages(
+  rows: Array<{ row: BatchRow; rowIndex: number }>,
+  layers: TemplateLayer[],
+  assets: Record<string, ProjectAsset>,
+) {
+  const dynamicLayers = layers.filter(isDynamicLayer);
+  const missingMessages: string[] = [];
+
+  for (const { row, rowIndex } of rows) {
+    for (const layer of dynamicLayers) {
+      const value = row.values[layer.id];
+
+      if (layer.type === "text" && !value?.trim()) {
+        missingMessages.push(`Row ${rowIndex + 1}: missing text "${layer.id}"`);
+      }
+
+      if (layer.type === "image-slot" && (!value || !assets[value])) {
+        missingMessages.push(`Row ${rowIndex + 1}: missing image "${layer.id}"`);
+      }
+    }
+  }
+
+  return missingMessages;
+}
+
+function showMissingDynamicContentError(messages: string[]) {
+  const visibleMessages = messages.slice(0, 12);
+  const remainingCount = messages.length - visibleMessages.length;
+  const suffix = remainingCount > 0 ? `\n...and ${remainingCount} more missing fields.` : "";
+
+  window.alert(
+    `Cannot export yet. Please fill all dynamic batch fields first:\n\n${visibleMessages.join(
+      "\n",
+    )}${suffix}`,
+  );
+}
+
 interface DecklistStageProps {
   fontRevision: number;
 }
@@ -481,6 +518,17 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
         return;
       }
 
+      const missingMessages = missingDynamicContentMessages(
+        [{ row, rowIndex }],
+        template.layers,
+        assets,
+      );
+
+      if (missingMessages.length > 0) {
+        showMissingDynamicContentError(missingMessages);
+        return;
+      }
+
       const dataUrl = await renderForRow(row.id);
 
       if (dataUrl) {
@@ -489,6 +537,14 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
     }
 
     async function handleExportAll() {
+      const rowsWithIndex = batchRows.map((row, rowIndex) => ({ row, rowIndex }));
+      const missingMessages = missingDynamicContentMessages(rowsWithIndex, template.layers, assets);
+
+      if (missingMessages.length > 0) {
+        showMissingDynamicContentError(missingMessages);
+        return;
+      }
+
       for (const [rowIndex, row] of batchRows.entries()) {
         const dataUrl = await renderForRow(row.id);
 
@@ -508,7 +564,7 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
       window.removeEventListener("decklist-maker:export-current", handleExportCurrent);
       window.removeEventListener("decklist-maker:export-all", handleExportAll);
     };
-  }, [batchRows, renderPng, selectedBatchRowId, template.layers]);
+  }, [assets, batchRows, renderPng, selectedBatchRowId, template.layers]);
 
   function checkDeselect(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (event.target === event.target.getStage()) {
