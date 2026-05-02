@@ -11,6 +11,10 @@ import { useProjectStore } from "./store/projectStore";
 
 type Theme = "light" | "dark";
 type BusyAction = "opening" | "saving" | "exporting";
+type Notice = {
+  id: number;
+  message: string;
+};
 
 const BUSY_MESSAGES: Record<BusyAction, string> = {
   opening: "Opening template...",
@@ -45,12 +49,13 @@ export default function App() {
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
   const [templateFileHandle, setTemplateFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [openedTemplateName, setOpenedTemplateName] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [fontRevision, setFontRevision] = useState(0);
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() =>
-    window.localStorage.getItem("decklist-maker-theme") === "dark" ? "dark" : "light",
+    window.localStorage.getItem("decklist-maker-theme") === "light" ? "light" : "dark",
   );
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
@@ -90,6 +95,19 @@ export default function App() {
     return () => window.removeEventListener("decklist-maker:png-preview-ready", handlePreviewReady);
   }, []);
 
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setNotice(null), 4200);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
+
+  function showNotice(message: string) {
+    setNotice({ id: Date.now(), message });
+  }
+
   async function loadTemplateFile(file: File) {
     const templateDocument = await importTemplateArchive(await file.arrayBuffer());
     await registerEmbeddedFonts(templateDocument.template.fonts, templateDocument.assets);
@@ -110,6 +128,7 @@ export default function App() {
       await loadTemplateFile(file);
       setTemplateFileHandle(null);
       setOpenedTemplateName(file.name);
+      showNotice(`Opened ${file.name}.`);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not open the template.");
     } finally {
@@ -140,6 +159,7 @@ export default function App() {
       await loadTemplateFile(await fileHandle.getFile());
       setTemplateFileHandle(fileHandle);
       setOpenedTemplateName(fileHandle.name);
+      showNotice(`Opened ${fileHandle.name}.`);
     } catch (error) {
       if (isAbortError(error)) {
         return;
@@ -173,6 +193,7 @@ export default function App() {
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
+    showNotice(`Downloaded ${fileName}.`);
   }
 
   async function handleSaveTemplate() {
@@ -188,6 +209,7 @@ export default function App() {
       }
 
       await writeTemplateFile(templateFileHandle, blob);
+      showNotice(`Saved ${templateFileHandle.name}.`);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not save the template.");
     } finally {
@@ -204,6 +226,7 @@ export default function App() {
 
       if (!window.showSaveFilePicker) {
         downloadTemplate(blob, fileName);
+        showNotice("Direct overwrite is only supported in Chrome/Edge. Downloading a new copy instead.");
         return;
       }
 
@@ -216,6 +239,7 @@ export default function App() {
       await writeTemplateFile(fileHandle, blob);
       setTemplateFileHandle(fileHandle);
       setOpenedTemplateName(fileHandle.name);
+      showNotice(`Saved ${fileHandle.name}.`);
     } catch (error) {
       if (isAbortError(error)) {
         return;
@@ -350,6 +374,12 @@ export default function App() {
             <span className="loading-spinner" aria-hidden="true" />
             <p>{BUSY_MESSAGES[busyAction]}</p>
           </div>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div className="app-notice" role="status" aria-live="polite">
+          {notice.message}
         </div>
       ) : null}
 

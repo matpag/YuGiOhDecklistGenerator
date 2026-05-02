@@ -701,6 +701,21 @@ label,
   }
 }
 
+.app-notice {
+  background: var(--surface);
+  border: 1px solid var(--active-border);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: 0 14px 32px var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 12px 14px;
+  position: fixed;
+  right: 18px;
+  z-index: 50;
+}
+
 .png-preview-dialog {
   background: var(--surface);
   border: 1px solid var(--border);
