@@ -44,6 +44,7 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
   const [templateFileHandle, setTemplateFileHandle] = useState<FileSystemFileHandle | null>(null);
+  const [openedTemplateName, setOpenedTemplateName] = useState<string | null>(null);
   const [fontRevision, setFontRevision] = useState(0);
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
@@ -108,6 +109,7 @@ export default function App() {
       await waitForPaint();
       await loadTemplateFile(file);
       setTemplateFileHandle(null);
+      setOpenedTemplateName(file.name);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not open the template.");
     } finally {
@@ -137,6 +139,7 @@ export default function App() {
 
       await loadTemplateFile(await fileHandle.getFile());
       setTemplateFileHandle(fileHandle);
+      setOpenedTemplateName(fileHandle.name);
     } catch (error) {
       if (isAbortError(error)) {
         return;
@@ -212,6 +215,7 @@ export default function App() {
 
       await writeTemplateFile(fileHandle, blob);
       setTemplateFileHandle(fileHandle);
+      setOpenedTemplateName(fileHandle.name);
     } catch (error) {
       if (isAbortError(error)) {
         return;
@@ -236,6 +240,11 @@ export default function App() {
         <div>
           <h1>Decklist Maker</h1>
           <p>Design one reusable template, then fill rows and export PNGs.</p>
+        </div>
+        <div className="open-file-status" title={openedTemplateName ?? "No template file opened"}>
+          <span>Template</span>
+          <strong>{openedTemplateName ?? "Unsaved template"}</strong>
+          {templateFileHandle ? <small>direct save enabled</small> : <small>download save</small>}
         </div>
         <div className="topbar-actions">
           <input

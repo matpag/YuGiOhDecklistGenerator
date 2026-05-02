@@ -150,6 +150,34 @@ label,
   margin: 0;
 }
 
+.open-file-status {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 2px;
+  justify-self: center;
+  line-height: 1.2;
+  min-width: 220px;
+  max-width: min(360px, 28vw);
+  padding: 7px 12px;
+}
+
+.open-file-status span,
+.open-file-status small {
+  color: var(--text-subtle);
+  font-size: 11px;
+}
+
+.open-file-status strong {
+  color: var(--text);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar-actions {
   display: flex;
   gap: 8px;
