@@ -620,7 +620,7 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
             onTouchStart={checkDeselect}
           >
             <Layer>
-              <Rect width={template.canvas.width} height={template.canvas.height} fill="#202536" />
+              <Rect width={template.canvas.width} height={template.canvas.height} fill="#ffffff" />
               {backgroundImage && backgroundRect ? (
                 <Image
                   image={backgroundImage}
