@@ -44,6 +44,7 @@ const textLayerSchema = baseLayerSchema
 const imageSlotLayerSchema = baseLayerSchema
   .extend({
     type: z.literal("image-slot"),
+    assetId: z.string().min(1).nullable().default(null),
     fit: z.enum(["contain", "cover", "stretch"]),
   });
 
@@ -115,6 +116,16 @@ export function createTemplateDocument(
       font.assetId,
       `font "${font.family}"`,
     );
+  }
+
+  for (const layer of template.layers) {
+    if (layer.type === "image-slot" && layer.assetId) {
+      templateAssets[layer.assetId] = requireAsset(
+        assets,
+        layer.assetId,
+        `image slot "${layer.id}"`,
+      );
+    }
   }
 
   return parseTemplateDocument({

@@ -51,6 +51,7 @@ export interface TextLayer extends BaseLayer {
 
 export interface ImageSlotLayer extends BaseLayer {
   type: "image-slot";
+  assetId: AssetId | null;
   fit: "contain" | "cover" | "stretch";
 }
 

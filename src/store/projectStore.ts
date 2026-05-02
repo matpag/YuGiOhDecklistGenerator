@@ -147,6 +147,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
         width: 805,
         height: 810,
         rotation: 0,
+        assetId: null,
         fit: "contain",
       };
 

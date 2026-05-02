@@ -290,22 +290,60 @@ function TextControls({ layer }: TextControlsProps) {
 }
 
 function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
+  const assets = useProjectStore((state) => state.assets);
+  const addAsset = useProjectStore((state) => state.addAsset);
   const updateLayer = useProjectStore((state) => state.updateLayer);
+  const slotAsset = layer.assetId ? assets[layer.assetId] : null;
+
+  async function handleSlotImageFile(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    const validationError = validateAssetFile(file, "image");
+    if (validationError) {
+      window.alert(validationError);
+      return;
+    }
+
+    const asset = await fileToAsset(file);
+    addAsset(asset);
+    updateLayer(layer.id, { assetId: asset.id });
+  }
 
   return (
-    <label>
-      Fit
-      <select
-        value={layer.fit}
-        onChange={(event) =>
-          updateLayer(layer.id, { fit: event.target.value as ImageSlotLayer["fit"] })
-        }
-      >
-        <option value="contain">Contain</option>
-        <option value="cover">Cover</option>
-        <option value="stretch">Stretch</option>
-      </select>
-    </label>
+    <>
+      <label>
+        Fit
+        <select
+          value={layer.fit}
+          onChange={(event) =>
+            updateLayer(layer.id, { fit: event.target.value as ImageSlotLayer["fit"] })
+          }
+        >
+          <option value="contain">Contain</option>
+          <option value="cover">Cover</option>
+          <option value="stretch">Stretch</option>
+        </select>
+      </label>
+      <label className="file-button">
+        <Upload size={17} />
+        {slotAsset ? slotAsset.name : "Upload slot image"}
+        <input
+          accept={IMAGE_FILE_ACCEPT}
+          type="file"
+          onChange={(event) => {
+            void handleSlotImageFile(event.target.files?.[0]);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
+      {layer.dynamic && slotAsset ? (
+        <p className="field-warning">
+          This image will be replaced at export time by the batch row image.
+        </p>
+      ) : null}
+    </>
   );
 }
 

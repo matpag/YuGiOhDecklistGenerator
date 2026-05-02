@@ -417,6 +417,16 @@ label,
   margin: 0;
 }
 
+.field-warning {
+  background: var(--active-bg);
+  border: 1px solid var(--active-border);
+  border-radius: 6px;
+  color: var(--active-text);
+  font-size: 12px;
+  margin: 0;
+  padding: 8px 10px;
+}
+
 .preview-pane {
   display: grid;
   grid-template-rows: 54px 1fr;

@@ -591,8 +591,8 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
                   <EditableImageSlot
                     image={
                       layer.dynamic && activeRow?.values[layer.id]
-                        ? images[activeRow.values[layer.id]] ?? null
-                        : null
+                        ? images[activeRow.values[layer.id]] ?? images[layer.assetId ?? ""] ?? null
+                        : images[layer.assetId ?? ""] ?? null
                     }
                     isSelected={selectedLayerId === layer.id}
                     key={layer.id}
