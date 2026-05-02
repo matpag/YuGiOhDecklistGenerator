@@ -263,7 +263,6 @@ export default function App() {
       <header className="topbar">
         <div>
           <h1>Decklist Maker</h1>
-          <p>Design one reusable template, then fill rows and export PNGs.</p>
         </div>
         {openedTemplateName ? (
           <div className="open-file-status" title={openedTemplateName}>
