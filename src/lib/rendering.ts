@@ -1,6 +1,5 @@
 import type { ImageSlotLayer, TextLayer } from "../types/project";
 
-export const CANVAS_SIZE = 1080;
 export const EDITOR_OVERLAY_NAME = "editor-overlay";
 
 export interface DrawRect {

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { Group, Image, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import {
-  CANVAS_SIZE,
   EDITOR_OVERLAY_NAME,
   coverRect,
   fittedFontSize,
@@ -563,7 +562,7 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
             onTouchStart={checkDeselect}
           >
             <Layer>
-              <Rect width={CANVAS_SIZE} height={CANVAS_SIZE} fill="#202536" />
+              <Rect width={template.canvas.width} height={template.canvas.height} fill="#202536" />
               {backgroundImage && backgroundRect ? (
                 <Image
                   image={backgroundImage}

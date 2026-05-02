@@ -322,6 +322,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
   const addFont = useProjectStore((state) => state.addFont);
   const addTextLayer = useProjectStore((state) => state.addTextLayer);
   const addImageSlotLayer = useProjectStore((state) => state.addImageSlotLayer);
+  const updateCanvas = useProjectStore((state) => state.updateCanvas);
   const updateLayer = useProjectStore((state) => state.updateLayer);
   const setBackgroundAsset = useProjectStore((state) => state.setBackgroundAsset);
   const removeLayer = useProjectStore((state) => state.removeLayer);
@@ -403,6 +404,23 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
       >
         <PanelLeftClose size={18} />
       </button>
+      <section className="panel">
+        <h2>Canvas</h2>
+        <FieldRow>
+          <NumberField
+            label="Width"
+            min={1}
+            value={template.canvas.width}
+            onChange={(value) => updateCanvas({ width: Math.round(value) })}
+          />
+          <NumberField
+            label="Height"
+            min={1}
+            value={template.canvas.height}
+            onChange={(value) => updateCanvas({ height: Math.round(value) })}
+          />
+        </FieldRow>
+      </section>
       <section className="panel">
         <div className="panel-heading-row">
           <h2>Template</h2>

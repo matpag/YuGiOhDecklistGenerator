@@ -2,8 +2,8 @@ export type AssetId = string;
 export type LayerId = string;
 
 export interface CanvasSettings {
-  width: 1080;
-  height: 1080;
+  width: number;
+  height: number;
 }
 
 export interface ProjectAsset {

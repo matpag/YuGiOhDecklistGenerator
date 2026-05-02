@@ -3,6 +3,7 @@ import { defaultDocument } from "../data/defaultTemplate";
 import type {
   AssetId,
   BatchRow,
+  CanvasSettings,
   DecklistTemplate,
   EmbeddedFont,
   ImageSlotLayer,
@@ -18,6 +19,7 @@ interface ProjectState extends TemplateDocument {
   selectedBatchRowId: string;
   batchRows: BatchRow[];
   loadDocument: (document: TemplateDocument) => void;
+  updateCanvas: (updates: Partial<CanvasSettings>) => void;
   addAsset: (asset: ProjectAsset) => AssetId;
   addFont: (font: EmbeddedFont) => void;
   setBackgroundAsset: (assetId: AssetId | null) => void;
@@ -61,6 +63,16 @@ export const useProjectStore = create<ProjectState>((set) => ({
         },
       ],
     }),
+  updateCanvas: (updates) =>
+    set((state) => ({
+      template: {
+        ...state.template,
+        canvas: {
+          ...state.template.canvas,
+          ...updates,
+        },
+      },
+    })),
   addAsset: (asset) => {
     set((state) => ({
       assets: {

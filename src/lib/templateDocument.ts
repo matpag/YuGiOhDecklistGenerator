@@ -50,7 +50,7 @@ const imageSlotLayerSchema = baseLayerSchema
 const templateSchema = z
   .object({
     version: z.literal(1),
-    canvas: z.object({ width: z.literal(1080), height: z.literal(1080) }).strict(),
+    canvas: z.object({ width: z.number().min(1), height: z.number().min(1) }).strict(),
     backgroundAssetId: z.string().min(1).nullable(),
     fonts: z
       .array(
