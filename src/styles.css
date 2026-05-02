@@ -251,7 +251,7 @@ label,
 }
 
 .sidebar-collapse-button-inline {
-  justify-self: end;
+  justify-self: start;
 }
 
 .right-panel-header {
