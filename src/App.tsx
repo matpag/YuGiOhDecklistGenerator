@@ -241,11 +241,13 @@ export default function App() {
           <h1>Decklist Maker</h1>
           <p>Design one reusable template, then fill rows and export PNGs.</p>
         </div>
-        <div className="open-file-status" title={openedTemplateName ?? "No template file opened"}>
-          <span>Template</span>
-          <strong>{openedTemplateName ?? "Unsaved template"}</strong>
-          {templateFileHandle ? <small>direct save enabled</small> : <small>download save</small>}
-        </div>
+        {openedTemplateName ? (
+          <div className="open-file-status" title={openedTemplateName}>
+            <span>Template</span>
+            <strong>{openedTemplateName}</strong>
+            {templateFileHandle ? <small>direct save enabled</small> : <small>download save</small>}
+          </div>
+        ) : null}
         <div className="topbar-actions">
           <input
             ref={fileInputRef}
