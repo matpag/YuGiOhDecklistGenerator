@@ -410,8 +410,8 @@ label,
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  padding: clamp(14px, 2vw, 28px);
-  place-items: start center;
+  padding: 8px;
+  place-items: center;
 }
 
 @media (max-width: 1180px) {

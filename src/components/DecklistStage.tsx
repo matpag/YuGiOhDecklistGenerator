@@ -18,7 +18,6 @@ import type {
   TextLayer,
 } from "../types/project";
 
-const CANVAS_PADDING = 56;
 const ZOOM_PRESETS = [25, 50, 75, 100, 150, 200];
 const MIN_LAYER_SIZE = 10;
 
@@ -384,8 +383,8 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
   const selectLayer = useProjectStore((state) => state.selectLayer);
   const images = useAssetImages(assets);
   const fitScale = Math.min(
-    Math.max((viewportSize.width - CANVAS_PADDING) / template.canvas.width, 0.05),
-    Math.max((viewportSize.height - CANVAS_PADDING) / template.canvas.height, 0.05),
+    Math.max(viewportSize.width / template.canvas.width, 0.05),
+    Math.max(viewportSize.height / template.canvas.height, 0.05),
   );
   const previewScale = zoomMode === "fit" ? fitScale : zoomPercent / 100;
   const previewWidth = Math.round(template.canvas.width * previewScale);
