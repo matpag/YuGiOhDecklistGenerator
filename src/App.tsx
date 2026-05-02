@@ -30,6 +30,8 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
   const [fontRevision, setFontRevision] = useState(0);
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() =>
     window.localStorage.getItem("decklist-maker-theme") === "dark" ? "dark" : "light",
@@ -194,10 +196,20 @@ export default function App() {
         </div>
       </header>
 
-      <section className="workspace">
-        <EditorSidebar />
+      <section
+        className={`workspace ${leftSidebarCollapsed ? "workspace-left-collapsed" : ""} ${
+          rightSidebarCollapsed ? "workspace-right-collapsed" : ""
+        }`}
+      >
+        <EditorSidebar
+          collapsed={leftSidebarCollapsed}
+          onToggleCollapsed={() => setLeftSidebarCollapsed((collapsed) => !collapsed)}
+        />
         <DecklistStage fontRevision={fontRevision} />
-        <RightPanel />
+        <RightPanel
+          collapsed={rightSidebarCollapsed}
+          onToggleCollapsed={() => setRightSidebarCollapsed((collapsed) => !collapsed)}
+        />
       </section>
 
       {busyAction ? (

@@ -1,6 +1,8 @@
 import {
   FileImage,
   Image as ImageIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RectangleHorizontal,
   Trash2,
@@ -307,7 +309,12 @@ function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
   );
 }
 
-export function EditorSidebar() {
+interface EditorSidebarProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarProps) {
   const selectedLayer = useProjectStore(selectedLayerFromState);
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
@@ -371,8 +378,31 @@ export function EditorSidebar() {
     }
   }
 
+  if (collapsed) {
+    return (
+      <aside className="sidebar sidebar-collapsed">
+        <button
+          className="sidebar-collapse-button"
+          title="Expand editor sidebar"
+          type="button"
+          onClick={onToggleCollapsed}
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="sidebar">
+      <button
+        className="sidebar-collapse-button sidebar-collapse-button-inline"
+        title="Collapse editor sidebar"
+        type="button"
+        onClick={onToggleCollapsed}
+      >
+        <PanelLeftClose size={18} />
+      </button>
       <section className="panel">
         <div className="panel-heading-row">
           <h2>Template</h2>

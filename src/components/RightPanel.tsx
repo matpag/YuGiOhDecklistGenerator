@@ -1,4 +1,15 @@
-import { Copy, Image as ImageIcon, Layers, Plus, Rows3, Trash2, Type, Upload } from "lucide-react";
+import {
+  Copy,
+  Image as ImageIcon,
+  Layers,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Rows3,
+  Trash2,
+  Type,
+  Upload,
+} from "lucide-react";
 import { useState } from "react";
 import { fileToAsset, IMAGE_FILE_ACCEPT, validateAssetFile } from "../lib/assets";
 import { isDynamicLayer } from "../lib/layers";
@@ -11,7 +22,12 @@ function layerIcon(layer: TemplateLayer) {
   return layer.type === "text" ? <Type size={15} /> : <ImageIcon size={15} />;
 }
 
-export function RightPanel() {
+interface RightPanelProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
   const [tab, setTab] = useState<PanelTab>("batch");
   const template = useProjectStore((state) => state.template);
   const selectedLayerId = useProjectStore((state) => state.selectedLayerId);
@@ -50,8 +66,33 @@ export function RightPanel() {
     updateBatchValue(rowId, layerId, asset.id);
   }
 
+  if (collapsed) {
+    return (
+      <aside className="right-panel right-panel-collapsed">
+        <button
+          className="sidebar-collapse-button"
+          title="Expand batch sidebar"
+          type="button"
+          onClick={onToggleCollapsed}
+        >
+          <PanelRightOpen size={18} />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="right-panel">
+      <div className="right-panel-header">
+        <button
+          className="sidebar-collapse-button"
+          title="Collapse batch sidebar"
+          type="button"
+          onClick={onToggleCollapsed}
+        >
+          <PanelRightClose size={18} />
+        </button>
+      </div>
       <div className="panel-tabs">
         <button
           className={tab === "layers" ? "tab-button-active" : ""}
