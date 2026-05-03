@@ -1,3 +1,5 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FileImage,
   Image as ImageIcon,
@@ -5,6 +7,7 @@ import {
   PanelLeftOpen,
   Plus,
   RectangleHorizontal,
+  Search,
   Trash2,
   Type,
   Upload,
@@ -19,6 +22,48 @@ import {
 import { registerEmbeddedFont } from "../lib/fonts";
 import { selectedLayerFromState, useProjectStore } from "../store/projectStore";
 import type { EmbeddedFont, ImageSlotLayer, TemplateLayer, TextLayer } from "../types/project";
+
+const FALLBACK_FONT_OPTIONS = [
+  "Arial Black",
+  "Arial",
+  "Calibri",
+  "Cambria",
+  "Comic Sans MS",
+  "Courier New",
+  "Georgia",
+  "Impact",
+  "Inter",
+  "Segoe UI",
+  "Tahoma",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+];
+
+interface LocalFontData {
+  family: string;
+}
+
+interface FontMenuPosition {
+  left: number;
+  maxHeight: number;
+  top: number;
+  width: number;
+}
+
+interface FontSelectProps {
+  label: string;
+  onChange: (fontFamily: string) => void;
+  onOpen: () => void;
+  options: string[];
+  value: string;
+}
+
+declare global {
+  interface Window {
+    queryLocalFonts?: () => Promise<LocalFontData[]>;
+  }
+}
 
 function asNumber(value: string, fallback: number) {
   const parsed = Number(value);
@@ -128,20 +173,13 @@ function CommonLayerControls({ layer }: CommonLayerControlsProps) {
 }
 
 interface TextControlsProps {
+  fontOptions: string[];
   layer: TextLayer;
+  onFontOpen: () => void;
 }
 
-function TextControls({ layer }: TextControlsProps) {
-  const template = useProjectStore((state) => state.template);
+function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
   const updateLayer = useProjectStore((state) => state.updateLayer);
-  const fontOptions = [
-    "Arial Black",
-    "Arial",
-    "Impact",
-    "Trebuchet MS",
-    "Verdana",
-    ...template.fonts.map((font) => font.family),
-  ];
 
   return (
     <>
@@ -153,19 +191,16 @@ function TextControls({ layer }: TextControlsProps) {
         />
       </label>
       <FieldRow>
-        <label>
-          Font
-          <input
-            list="font-options"
+        <div className="field-label">
+          <span>Font</span>
+          <FontSelect
+            label="Font"
+            options={fontOptions}
             value={layer.fontFamily}
-            onChange={(event) => updateLayer(layer.id, { fontFamily: event.target.value })}
+            onOpen={onFontOpen}
+            onChange={(fontFamily) => updateLayer(layer.id, { fontFamily })}
           />
-          <datalist id="font-options">
-            {fontOptions.map((font) => (
-              <option key={font} value={font} />
-            ))}
-          </datalist>
-        </label>
+        </div>
         <label>
           Style
           <select
@@ -364,6 +399,49 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
   const updateLayer = useProjectStore((state) => state.updateLayer);
   const setBackgroundAsset = useProjectStore((state) => state.setBackgroundAsset);
   const removeLayer = useProjectStore((state) => state.removeLayer);
+  const removeFont = useProjectStore((state) => state.removeFont);
+  const [fontAccessRequested, setFontAccessRequested] = useState(false);
+  const [fontOptions, setFontOptions] = useState(() =>
+    mergeFontOptions([...FALLBACK_FONT_OPTIONS, ...fontFamiliesFromTemplate(template)]),
+  );
+
+  useEffect(() => {
+    setFontOptions((currentOptions) =>
+      mergeFontOptions([
+        ...currentOptions,
+        ...FALLBACK_FONT_OPTIONS,
+        ...fontFamiliesFromTemplate(template),
+      ]),
+    );
+  }, [template]);
+
+  async function loadSystemFonts() {
+    if (fontAccessRequested || !window.queryLocalFonts) {
+      return;
+    }
+
+    setFontAccessRequested(true);
+
+    try {
+      const localFonts = await window.queryLocalFonts();
+      setFontOptions((currentOptions) =>
+        mergeFontOptions([
+          ...currentOptions,
+          ...localFonts.map((font) => font.family),
+          ...FALLBACK_FONT_OPTIONS,
+          ...fontFamiliesFromTemplate(template),
+        ]),
+      );
+    } catch {
+      setFontOptions((currentOptions) =>
+        mergeFontOptions([
+          ...currentOptions,
+          ...FALLBACK_FONT_OPTIONS,
+          ...fontFamiliesFromTemplate(template),
+        ]),
+      );
+    }
+  }
 
   async function handleBackgroundFile(file: File | undefined) {
     if (!file) {
@@ -411,10 +489,20 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
 
     addAsset(asset);
     addFont(font);
+    setFontOptions((currentOptions) => mergeFontOptions([...currentOptions, family]));
 
     if (selectedLayer?.type === "text") {
       updateLayer(selectedLayer.id, { fontFamily: family });
     }
+  }
+
+  function handleRemoveFont(font: EmbeddedFont) {
+    removeFont(font.id);
+    setFontOptions((currentOptions) => {
+      return mergeFontOptions(
+        currentOptions.filter((fontOption) => fontOption !== font.family),
+      );
+    });
   }
 
   if (collapsed) {
@@ -496,6 +584,14 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
                   <strong>{font.family}</strong>
                   <small>{assets[font.assetId]?.name ?? "Embedded font"}</small>
                 </span>
+                <button
+                  className="icon-button danger-button"
+                  title={`Delete ${font.family}`}
+                  type="button"
+                  onClick={() => handleRemoveFont(font)}
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             ))}
           </div>
@@ -542,7 +638,11 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
             </div>
             <CommonLayerControls layer={selectedLayer} />
             {selectedLayer.type === "text" ? (
-              <TextControls layer={selectedLayer} />
+              <TextControls
+                fontOptions={fontOptions}
+                layer={selectedLayer}
+                onFontOpen={loadSystemFonts}
+              />
             ) : (
               <ImageSlotControls layer={selectedLayer} />
             )}
@@ -552,5 +652,257 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
         )}
       </section>
     </aside>
+  );
+}
+
+function FontSelect({ label, onChange, onOpen, options, value }: FontSelectProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const skipNextFocusOpenRef = useRef(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const [menuPosition, setMenuPosition] = useState<FontMenuPosition | null>(null);
+  const menuId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-menu`;
+  const availableOptions = mergeFontOptions([...options, value]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = normalizedQuery
+    ? availableOptions.filter((font) => font.toLowerCase().includes(normalizedQuery))
+    : availableOptions;
+
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery(value);
+    }
+  }, [isOpen, value]);
+
+  function updateMenuPosition() {
+    const input = inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    const rect = input.getBoundingClientRect();
+    const gap = 4;
+    const viewportMargin = 10;
+    const spaceBelow = window.innerHeight - rect.bottom - viewportMargin;
+    const spaceAbove = rect.top - viewportMargin;
+    const opensAbove = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const availableHeight = Math.max(120, opensAbove ? spaceAbove : spaceBelow);
+    const maxHeight = Math.min(320, availableHeight - gap);
+    const top = opensAbove
+      ? Math.max(viewportMargin, rect.top - maxHeight - gap)
+      : Math.min(rect.bottom + gap, window.innerHeight - maxHeight - viewportMargin);
+    const left = Math.min(
+      Math.max(viewportMargin, rect.left),
+      Math.max(viewportMargin, window.innerWidth - rect.width - viewportMargin),
+    );
+
+    setMenuPosition({
+      left,
+      maxHeight,
+      top,
+      width: rect.width,
+    });
+  }
+
+  function openMenu() {
+    onOpen();
+    setIsOpen(true);
+  }
+
+  function closeMenu() {
+    setIsOpen(false);
+  }
+
+  function focusInputWithoutOpening() {
+    skipNextFocusOpenRef.current = true;
+    inputRef.current?.focus();
+    window.setTimeout(() => {
+      skipNextFocusOpenRef.current = false;
+    }, 0);
+  }
+
+  function selectFont(font: string) {
+    onChange(font);
+    setQuery(font);
+    closeMenu();
+    focusInputWithoutOpening();
+  }
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updateMenuPosition();
+    }
+  }, [isOpen, filteredOptions.length]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (inputRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+
+      closeMenu();
+    }
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <>
+      <div className="font-combobox">
+        <input
+          ref={inputRef}
+          aria-autocomplete="list"
+          aria-controls={isOpen ? menuId : undefined}
+          aria-expanded={isOpen}
+          aria-label={label}
+          className="font-combobox-input"
+          role="combobox"
+          value={isOpen ? query : value}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            openMenu();
+          }}
+          onFocus={() => {
+            if (skipNextFocusOpenRef.current) {
+              return;
+            }
+
+            openMenu();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              openMenu();
+              menuRef.current?.querySelector<HTMLButtonElement>(".font-select-option")?.focus();
+            }
+
+            if (event.key === "Enter") {
+              const exactMatch = availableOptions.find(
+                (font) => font.toLowerCase() === query.trim().toLowerCase(),
+              );
+              const nextFont = exactMatch ?? filteredOptions[0];
+
+              if (nextFont) {
+                event.preventDefault();
+                selectFont(nextFont);
+              }
+            }
+
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setQuery(value);
+              closeMenu();
+            }
+          }}
+        />
+        <Search aria-hidden="true" className="font-combobox-icon" size={15} />
+      </div>
+      {isOpen && menuPosition
+        ? createPortal(
+            <div
+              ref={menuRef}
+              aria-label={label}
+              className="font-select-menu"
+              id={menuId}
+              role="listbox"
+              style={{
+                left: menuPosition.left,
+                maxHeight: menuPosition.maxHeight,
+                top: menuPosition.top,
+                width: menuPosition.width,
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setQuery(value);
+                  closeMenu();
+                  focusInputWithoutOpening();
+                }
+
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  const options = Array.from(
+                    menuRef.current?.querySelectorAll<HTMLButtonElement>(".font-select-option") ??
+                      [],
+                  );
+                  const currentIndex = options.findIndex(
+                    (option) => option === document.activeElement,
+                  );
+                  options[Math.min(currentIndex + 1, options.length - 1)]?.focus();
+                }
+
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  const options = Array.from(
+                    menuRef.current?.querySelectorAll<HTMLButtonElement>(".font-select-option") ??
+                      [],
+                  );
+                  const currentIndex = options.findIndex(
+                    (option) => option === document.activeElement,
+                  );
+
+                  if (currentIndex <= 0) {
+                    inputRef.current?.focus();
+                    return;
+                  }
+
+                  options[currentIndex - 1]?.focus();
+                }
+              }}
+            >
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((font) => (
+                  <button
+                    aria-selected={font === value}
+                    className={`font-select-option ${
+                      font === value ? "font-select-option-active" : ""
+                    }`}
+                    key={font}
+                    role="option"
+                    type="button"
+                    onClick={() => {
+                      selectFont(font);
+                    }}
+                  >
+                    {font}
+                  </button>
+                ))
+              ) : (
+                <div className="font-select-empty">No fonts found</div>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function fontFamiliesFromTemplate(template: ReturnType<typeof useProjectStore.getState>["template"]) {
+  return [
+    ...template.fonts.map((font) => font.family),
+    ...template.layers.flatMap((layer) => (layer.type === "text" ? [layer.fontFamily] : [])),
+  ];
+}
+
+function mergeFontOptions(fonts: string[]) {
+  return Array.from(new Set(fonts.map((font) => font.trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
   );
 }

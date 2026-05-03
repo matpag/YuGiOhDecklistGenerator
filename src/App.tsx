@@ -8,6 +8,7 @@ import { registerEmbeddedFonts } from "./lib/fonts";
 import { exportTemplateArchive, importTemplateArchive } from "./lib/templateArchive";
 import { createTemplateDocument, templateFileName } from "./lib/templateDocument";
 import { useProjectStore } from "./store/projectStore";
+import type { TemplateLayer } from "./types/project";
 
 type Theme = "light" | "dark";
 type BusyAction = "opening" | "saving" | "exporting";
@@ -44,8 +45,19 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"),
+  );
+}
+
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const layerClipboardRef = useRef<TemplateLayer | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
   const [templateFileHandle, setTemplateFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [openedTemplateName, setOpenedTemplateName] = useState<string | null>(null);
@@ -60,6 +72,45 @@ export default function App() {
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
   const loadDocument = useProjectStore((state) => state.loadDocument);
+  const selectedLayer = useProjectStore((state) =>
+    state.template.layers.find((layer) => layer.id === state.selectedLayerId) ?? null,
+  );
+  const pasteLayer = useProjectStore((state) => state.pasteLayer);
+  const removeLayer = useProjectStore((state) => state.removeLayer);
+
+  useEffect(() => {
+    function handleKeyboardShortcut(event: KeyboardEvent) {
+      if (busyAction || pngPreviewUrl || isEditableShortcutTarget(event.target)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const copyShortcut = (event.ctrlKey || event.metaKey) && key === "c";
+      const pasteShortcut = (event.ctrlKey || event.metaKey) && key === "v";
+      const deleteShortcut = event.key === "Delete" || event.key === "Backspace";
+
+      if (copyShortcut && selectedLayer) {
+        event.preventDefault();
+        layerClipboardRef.current = structuredClone(selectedLayer);
+        showNotice(`Copied ${selectedLayer.id}.`);
+      }
+
+      if (pasteShortcut && layerClipboardRef.current) {
+        event.preventDefault();
+        pasteLayer(layerClipboardRef.current);
+        showNotice("Pasted layer.");
+      }
+
+      if (deleteShortcut && selectedLayer) {
+        event.preventDefault();
+        removeLayer(selectedLayer.id);
+        showNotice(`Deleted ${selectedLayer.id}.`);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcut);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcut);
+  }, [busyAction, pasteLayer, pngPreviewUrl, removeLayer, selectedLayer]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

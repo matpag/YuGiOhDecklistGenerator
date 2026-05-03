@@ -302,8 +302,8 @@ function EditableImageSlot({ layer, image, isSelected, onSelect }: EditableImage
         onTransform={(event) => commitRect(event.target as Konva.Rect)}
         onTransformEnd={(event) => commitRect(event.target as Konva.Rect)}
         rotation={layer.rotation}
-        stroke={isSelected ? "#2f80ed" : "#86a8d9"}
-        strokeWidth={isSelected ? 3 : 2}
+        stroke={isSelected ? "rgba(255,255,255,0.001)" : "#86a8d9"}
+        strokeWidth={isSelected ? 1 : 2}
         width={layer.width}
         x={layer.x}
         y={layer.y}

@@ -22,9 +22,11 @@ interface ProjectState extends TemplateDocument {
   updateCanvas: (updates: Partial<CanvasSettings>) => void;
   addAsset: (asset: ProjectAsset) => AssetId;
   addFont: (font: EmbeddedFont) => void;
+  removeFont: (fontId: string) => void;
   setBackgroundAsset: (assetId: AssetId | null) => void;
   addTextLayer: () => void;
   addImageSlotLayer: () => void;
+  pasteLayer: (layer: TemplateLayer) => void;
   updateLayer: (layerId: LayerId, updates: Partial<TemplateLayer>) => void;
   setLayerId: (layerId: LayerId, nextId: string) => void;
   selectLayer: (layerId: LayerId | null) => void;
@@ -96,6 +98,39 @@ export const useProjectStore = create<ProjectState>((set) => ({
         ],
       },
     })),
+  removeFont: (fontId) =>
+    set((state) => {
+      const font = state.template.fonts.find((embeddedFont) => embeddedFont.id === fontId);
+
+      if (!font) {
+        return state;
+      }
+
+      const remainingFonts = state.template.fonts.filter(
+        (embeddedFont) => embeddedFont.id !== fontId,
+      );
+      const assetStillUsedByFont = remainingFonts.some(
+        (embeddedFont) => embeddedFont.assetId === font.assetId,
+      );
+      const assets = assetStillUsedByFont
+        ? state.assets
+        : Object.fromEntries(
+            Object.entries(state.assets).filter(([assetId]) => assetId !== font.assetId),
+          );
+
+      return {
+        assets,
+        template: {
+          ...state.template,
+          fonts: remainingFonts,
+          layers: state.template.layers.map((layer) =>
+            layer.type === "text" && layer.fontFamily === font.family
+              ? { ...layer, fontFamily: "Arial" }
+              : layer,
+          ),
+        },
+      };
+    }),
   setBackgroundAsset: (assetId) =>
     set((state) => ({
       template: {
@@ -106,15 +141,17 @@ export const useProjectStore = create<ProjectState>((set) => ({
   addTextLayer: () =>
     set((state) => {
       const id = uniqueLayerId(state.template, "text");
+      const width = Math.min(520, state.template.canvas.width);
+      const height = Math.min(80, state.template.canvas.height);
       const layer: TextLayer = {
         id,
         type: "text",
         dynamic: true,
-        text: "New text",
-        x: 320,
-        y: 120,
-        width: 520,
-        height: 80,
+        text: "Text",
+        x: Math.round((state.template.canvas.width - width) / 2),
+        y: Math.round((state.template.canvas.height - height) / 2),
+        width,
+        height,
         rotation: 0,
         fontFamily: state.template.fonts[0]?.family ?? "Arial Black",
         fontStyle: "bold",
@@ -138,18 +175,40 @@ export const useProjectStore = create<ProjectState>((set) => ({
   addImageSlotLayer: () =>
     set((state) => {
       const id = uniqueLayerId(state.template, "decklist");
+      const width = Math.round(state.template.canvas.width * 0.5);
+      const height = Math.round(state.template.canvas.height * 0.5);
       const layer: ImageSlotLayer = {
         id,
         type: "image-slot",
         dynamic: true,
-        x: 245,
-        y: 240,
-        width: 805,
-        height: 810,
+        x: Math.round((state.template.canvas.width - width) / 2),
+        y: Math.round((state.template.canvas.height - height) / 2),
+        width,
+        height,
         rotation: 0,
         assetId: null,
         fit: "contain",
       };
+
+      return appendLayer(state, layer);
+    }),
+  pasteLayer: (sourceLayer) =>
+    set((state) => {
+      const id = uniqueLayerId(state.template, `${sourceLayer.id}-copy`);
+      const layer = {
+        ...sourceLayer,
+        id,
+        x: boundedPastedPosition(
+          sourceLayer.x,
+          sourceLayer.width,
+          state.template.canvas.width,
+        ),
+        y: boundedPastedPosition(
+          sourceLayer.y,
+          sourceLayer.height,
+          state.template.canvas.height,
+        ),
+      } as TemplateLayer;
 
       return appendLayer(state, layer);
     }),
@@ -305,6 +364,16 @@ function appendLayer(state: ProjectState, layer: TemplateLayer): Partial<Project
       layers: [...state.template.layers, layer],
     },
   };
+}
+
+function boundedPastedPosition(position: number, size: number, canvasSize: number) {
+  const offsetPosition = Math.round(position + 24);
+
+  if (offsetPosition + size <= canvasSize) {
+    return offsetPosition;
+  }
+
+  return Math.max(0, Math.round((canvasSize - size) / 2));
 }
 
 function uniqueLayerId(template: DecklistTemplate, seed: string, ignoredLayerId?: string) {
