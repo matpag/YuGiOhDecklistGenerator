@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { Group, Image, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import { Group, Image, Layer, Rect, Stage, Transformer } from "react-konva";
 import {
   EDITOR_OVERLAY_NAME,
   coverRect,
@@ -19,6 +19,22 @@ import type {
 
 const ZOOM_PRESETS = [25, 50, 75, 100, 150, 200];
 const MIN_LAYER_SIZE = 10;
+const TEXT_RASTER_SCALE = 6;
+
+interface RasterizedText {
+  image: HTMLImageElement;
+  padding: number;
+  height: number;
+  width: number;
+}
+
+interface TextRasterData {
+  canvas: HTMLCanvasElement;
+  dataUrl: string;
+  padding: number;
+  height: number;
+  width: number;
+}
 
 function useAssetImages(assets: Record<string, ProjectAsset>) {
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
@@ -75,6 +91,193 @@ function useAssetImages(assets: Record<string, ProjectAsset>) {
   return images;
 }
 
+function useRasterizedText(layer: TextLayer, text: string, fontRevision: number) {
+  const [rasterizedText, setRasterizedText] = useState<RasterizedText | null>(null);
+  const fontSize = fittedFontSize(layer, text);
+
+  useEffect(() => {
+    let active = true;
+
+    async function rasterizeText() {
+      await document.fonts.ready;
+
+      if (!active) {
+        return;
+      }
+
+      const rasterData = renderTextToImage(layer, text, fontSize);
+      const image = new window.Image();
+      const handleLoad = () => {
+        if (!active) {
+          return;
+        }
+
+        setRasterizedText({
+          image,
+          padding: rasterData.padding,
+          width: rasterData.width,
+          height: rasterData.height,
+        });
+      };
+
+      image.addEventListener("load", handleLoad);
+      image.src = rasterData.dataUrl;
+
+      if (image.complete) {
+        handleLoad();
+      }
+    }
+
+    void rasterizeText();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    fontRevision,
+    fontSize,
+    layer.align,
+    layer.autoShrink,
+    layer.fill,
+    layer.fontFamily,
+    layer.fontSize,
+    layer.fontStyle,
+    layer.height,
+    layer.lineHeight,
+    layer.shadowBlur,
+    layer.shadowColor,
+    layer.shadowEnabled,
+    layer.shadowOffsetX,
+    layer.shadowOffsetY,
+    layer.stroke,
+    layer.strokeWidth,
+    layer.verticalAlign,
+    layer.width,
+    text,
+  ]);
+
+  return rasterizedText;
+}
+
+function renderTextToImage(layer: TextLayer, text: string, fontSize: number): TextRasterData {
+  const strokeLineWidth = layer.strokeWidth * 2;
+  const shadowPadding = layer.shadowEnabled
+    ? layer.shadowBlur + Math.max(Math.abs(layer.shadowOffsetX), Math.abs(layer.shadowOffsetY))
+    : 0;
+  const padding = Math.ceil(strokeLineWidth + shadowPadding + 4);
+  const logicalWidth = Math.max(1, layer.width + padding * 2);
+  const logicalHeight = Math.max(1, layer.height + padding * 2);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = Math.ceil(logicalWidth * TEXT_RASTER_SCALE);
+  canvas.height = Math.ceil(logicalHeight * TEXT_RASTER_SCALE);
+
+  if (!context) {
+    return {
+      canvas,
+      dataUrl: canvas.toDataURL("image/png"),
+      padding,
+      width: logicalWidth,
+      height: logicalHeight,
+    };
+  }
+
+  context.scale(TEXT_RASTER_SCALE, TEXT_RASTER_SCALE);
+  context.font = `${layer.fontStyle} ${fontSize}px ${quoteFontFamily(layer.fontFamily)}`;
+  context.lineJoin = "round";
+  context.lineCap = "round";
+  context.miterLimit = 2;
+  context.textAlign = layer.align;
+  context.textBaseline = "top";
+
+  const lines = wrapText(
+    context,
+    text,
+    Math.max(1, layer.width - Math.max(layer.strokeWidth * 2, 0)),
+  );
+  const lineHeightPx = fontSize * layer.lineHeight;
+  const textHeight = Math.max(fontSize, (lines.length - 1) * lineHeightPx + fontSize);
+  const verticalOffset =
+    layer.verticalAlign === "middle"
+      ? Math.max(0, (layer.height - textHeight) / 2)
+      : layer.verticalAlign === "bottom"
+        ? Math.max(0, layer.height - textHeight)
+        : 0;
+  const textX =
+    layer.align === "center"
+      ? padding + layer.width / 2
+      : layer.align === "right"
+        ? padding + layer.width
+        : padding;
+
+  for (const [lineIndex, line] of lines.entries()) {
+    const textY = padding + verticalOffset + lineIndex * lineHeightPx;
+
+    if (strokeLineWidth > 0) {
+      context.strokeStyle = layer.stroke;
+      context.lineWidth = strokeLineWidth;
+      context.strokeText(line, textX, textY);
+    }
+
+    if (layer.shadowEnabled) {
+      context.save();
+      context.shadowBlur = layer.shadowBlur;
+      context.shadowColor = layer.shadowColor;
+      context.shadowOffsetX = layer.shadowOffsetX;
+      context.shadowOffsetY = layer.shadowOffsetY;
+      context.fillStyle = layer.fill;
+      context.fillText(line, textX, textY);
+      context.restore();
+    }
+
+    context.fillStyle = layer.fill;
+    context.fillText(line, textX, textY);
+  }
+
+  return {
+    canvas,
+    dataUrl: canvas.toDataURL("image/png"),
+    padding,
+    width: logicalWidth,
+    height: logicalHeight,
+  };
+}
+
+function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const result: string[] = [];
+
+  for (const paragraph of text.split(/\r?\n/)) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+
+    if (words.length === 0) {
+      result.push("");
+      continue;
+    }
+
+    let line = words[0];
+
+    for (const word of words.slice(1)) {
+      const nextLine = `${line} ${word}`;
+
+      if (context.measureText(nextLine).width <= maxWidth) {
+        line = nextLine;
+      } else {
+        result.push(line);
+        line = word;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result;
+}
+
+function quoteFontFamily(fontFamily: string) {
+  return fontFamily.includes(" ") ? `"${fontFamily}"` : fontFamily;
+}
+
 interface DraftZoomInputProps {
   value: number;
   onCommit: (value: number) => void;
@@ -126,22 +329,22 @@ interface EditableTextLayerProps {
 }
 
 function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: EditableTextLayerProps) {
-  const textRef = useRef<Konva.Text>(null);
+  const rectRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const updateLayer = useProjectStore((state) => state.updateLayer);
   const text = layer.dynamic ? row?.values[layer.id] || layer.text : layer.text;
-  const fontSize = fittedFontSize(layer, text);
+  const rasterizedText = useRasterizedText(layer, text, fontRevision);
 
   useEffect(() => {
     const transformer = transformerRef.current;
-    const textNode = textRef.current;
+    const rect = rectRef.current;
 
     if (!transformer) {
       return;
     }
 
-    if (isSelected && textNode) {
-      transformer.nodes([textNode]);
+    if (isSelected && rect) {
+      transformer.nodes([rect]);
       transformer.moveToTop();
       transformer.getLayer()?.batchDraw();
       return;
@@ -151,7 +354,7 @@ function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: E
     transformer.getLayer()?.batchDraw();
   }, [fontRevision, isSelected, layer.height, layer.width]);
 
-  function commitTextBox(node: Konva.Text) {
+  function commitTextBox(node: Konva.Rect) {
     const nextWidth = Math.max(MIN_LAYER_SIZE, node.width() * node.scaleX());
     const nextHeight = Math.max(MIN_LAYER_SIZE, node.height() * node.scaleY());
 
@@ -167,31 +370,36 @@ function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: E
 
   return (
     <>
-      <Text
-        ref={textRef}
-        align={layer.align}
+      {rasterizedText ? (
+        <Group
+          listening={false}
+          rotation={layer.rotation}
+          x={layer.x}
+          y={layer.y}
+        >
+          <Image
+            height={rasterizedText.height}
+            image={rasterizedText.image}
+            imageSmoothingEnabled
+            width={rasterizedText.width}
+            x={-rasterizedText.padding}
+            y={-rasterizedText.padding}
+          />
+        </Group>
+      ) : null}
+      <Rect
+        ref={rectRef}
         draggable={isSelected}
-        fill={layer.fill}
-        fillAfterStrokeEnabled
-        fontFamily={layer.fontFamily}
-        fontSize={fontSize}
-        fontStyle={layer.fontStyle}
+        fill="rgba(255,255,255,0.001)"
         height={layer.height}
-        lineHeight={layer.lineHeight}
+        name={EDITOR_OVERLAY_NAME}
         onClick={onSelect}
-        onDragEnd={(event) => commitTextBox(event.target as Konva.Text)}
+        onDragEnd={(event) => commitTextBox(event.target as Konva.Rect)}
+        onDragMove={(event) => commitTextBox(event.target as Konva.Rect)}
         onTap={onSelect}
-        onTransformEnd={(event) => commitTextBox(event.target as Konva.Text)}
+        onTransform={(event) => commitTextBox(event.target as Konva.Rect)}
+        onTransformEnd={(event) => commitTextBox(event.target as Konva.Rect)}
         rotation={layer.rotation}
-        shadowBlur={layer.shadowEnabled ? layer.shadowBlur : 0}
-        shadowColor={layer.shadowColor}
-        shadowEnabled={layer.shadowEnabled}
-        shadowOffsetX={layer.shadowOffsetX}
-        shadowOffsetY={layer.shadowOffsetY}
-        stroke={layer.stroke}
-        strokeWidth={layer.strokeWidth * 2}
-        text={text}
-        verticalAlign={layer.verticalAlign}
         width={layer.width}
         x={layer.x}
         y={layer.y}
@@ -401,6 +609,109 @@ function showMissingDynamicContentError(messages: string[]) {
   );
 }
 
+function drawImageCover(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const rect = coverRect(image.naturalWidth, image.naturalHeight, canvasWidth, canvasHeight);
+  context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+}
+
+function drawImageSlot(
+  context: CanvasRenderingContext2D,
+  layer: ImageSlotLayer,
+  image: HTMLImageElement | null,
+) {
+  if (!image) {
+    return;
+  }
+
+  const imageRect = imageRectForSlot(layer, image);
+
+  context.save();
+  context.translate(layer.x, layer.y);
+  context.rotate((layer.rotation * Math.PI) / 180);
+  context.beginPath();
+  context.rect(0, 0, layer.width, layer.height);
+  context.clip();
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    image,
+    imageRect.x - layer.x,
+    imageRect.y - layer.y,
+    imageRect.width,
+    imageRect.height,
+  );
+  context.restore();
+}
+
+function drawTextLayer(context: CanvasRenderingContext2D, layer: TextLayer, text: string) {
+  const fontSize = fittedFontSize(layer, text);
+  const rasterizedText = renderTextToImage(layer, text, fontSize);
+
+  context.save();
+  context.translate(layer.x, layer.y);
+  context.rotate((layer.rotation * Math.PI) / 180);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    rasterizedText.canvas,
+    -rasterizedText.padding,
+    -rasterizedText.padding,
+    rasterizedText.width,
+    rasterizedText.height,
+  );
+  context.restore();
+}
+
+function renderTemplateToDataUrl(
+  templateLayers: TemplateLayer[],
+  canvasWidth: number,
+  canvasHeight: number,
+  backgroundImage: HTMLImageElement | null,
+  row: BatchRow | null,
+  images: Record<string, HTMLImageElement>,
+) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  if (!context) {
+    return null;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  if (backgroundImage) {
+    drawImageCover(context, backgroundImage, canvasWidth, canvasHeight);
+  }
+
+  for (const layer of templateLayers) {
+    if (layer.type === "text") {
+      const text = layer.dynamic ? row?.values[layer.id] || layer.text : layer.text;
+      drawTextLayer(context, layer, text);
+      continue;
+    }
+
+    const image =
+      layer.dynamic && row?.values[layer.id]
+        ? images[row.values[layer.id]] ?? images[layer.assetId ?? ""] ?? null
+        : images[layer.assetId ?? ""] ?? null;
+
+    drawImageSlot(context, layer, image);
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
 interface DecklistStageProps {
   fontRevision: number;
 }
@@ -464,33 +775,25 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
     return () => observer.disconnect();
   }, []);
 
-  const renderPng = useCallback(() => {
-    const stage = stageRef.current;
-
-    if (!stage) {
-      return null;
-    }
-
-    const overlays = stage.find(`.${EDITOR_OVERLAY_NAME}`);
-    overlays.forEach((node) => node.hide());
-    stage.draw();
-
-    const dataUrl = stage.toDataURL({
-      mimeType: "image/png",
-      pixelRatio: 1 / previewScale,
-    });
-
-    overlays.forEach((node) => node.show());
-    stage.draw();
-
-    return dataUrl;
-  }, [previewScale]);
+  const renderPng = useCallback(
+    (row: BatchRow | null) =>
+      renderTemplateToDataUrl(
+        template.layers,
+        template.canvas.width,
+        template.canvas.height,
+        backgroundImage,
+        row,
+        images,
+      ),
+    [backgroundImage, images, template.canvas.height, template.canvas.width, template.layers],
+  );
 
   useEffect(() => {
     async function renderForRow(rowId: string) {
       setExportRowId(rowId);
       await waitForPaint();
-      const dataUrl = renderPng();
+      const row = batchRows.find((candidate) => candidate.id === rowId) ?? batchRows[0] ?? null;
+      const dataUrl = renderPng(row);
       setExportRowId(null);
       await waitForPaint();
       return dataUrl;
