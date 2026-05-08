@@ -104,15 +104,115 @@ interface ColorFieldProps {
 }
 
 function ColorField({ label, onChange, value }: ColorFieldProps) {
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const commitTimeoutRef = useRef<number | null>(null);
+  const [draft, setDraft] = useState(value);
+  const pickerValue = normalizeHexColor(draft) ?? normalizeHexColor(value) ?? "#000000";
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
+    const input = colorInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    const element = input;
+
+    function clearPendingCommit() {
+      if (commitTimeoutRef.current === null) {
+        return;
+      }
+
+      window.clearTimeout(commitTimeoutRef.current);
+      commitTimeoutRef.current = null;
+    }
+
+    function scheduleCommit(nextValue: string) {
+      clearPendingCommit();
+      commitTimeoutRef.current = window.setTimeout(() => {
+        onChange(nextValue);
+        commitTimeoutRef.current = null;
+      }, 120);
+    }
+
+    function handleInput() {
+      setDraft(element.value);
+      scheduleCommit(element.value);
+    }
+
+    function handleChange() {
+      clearPendingCommit();
+      setDraft(element.value);
+      onChange(element.value);
+    }
+
+    element.addEventListener("input", handleInput);
+    element.addEventListener("change", handleChange);
+
+    return () => {
+      clearPendingCommit();
+      element.removeEventListener("input", handleInput);
+      element.removeEventListener("change", handleChange);
+    };
+  }, [onChange]);
+
+  function commitDraft() {
+    const nextColor = normalizeHexColor(draft);
+
+    if (!nextColor) {
+      setDraft(value);
+      return;
+    }
+
+    setDraft(nextColor);
+    onChange(nextColor);
+  }
+
   return (
     <label>
       {label}
       <span className="color-control">
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} />
-        <input type="text" value={value} onChange={(event) => onChange(event.target.value)} />
+        <input ref={colorInputRef} type="color" value={pickerValue} readOnly />
+        <input
+          type="text"
+          value={draft}
+          onBlur={commitDraft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+
+            if (event.key === "Escape") {
+              setDraft(value);
+              event.currentTarget.blur();
+            }
+          }}
+        />
       </span>
     </label>
   );
+}
+
+function normalizeHexColor(value: string) {
+  const trimmedValue = value.trim();
+  const shortMatch = /^#?([0-9a-f]{3})$/i.exec(trimmedValue);
+
+  if (shortMatch) {
+    return `#${shortMatch[1]
+      .split("")
+      .map((character) => `${character}${character}`)
+      .join("")
+      .toLowerCase()}`;
+  }
+
+  const longMatch = /^#?([0-9a-f]{6})$/i.exec(trimmedValue);
+
+  return longMatch ? `#${longMatch[1].toLowerCase()}` : null;
 }
 
 interface CommonLayerControlsProps {
