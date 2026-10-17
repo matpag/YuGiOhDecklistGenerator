@@ -20,6 +20,8 @@ import type {
 const ZOOM_PRESETS = [25, 50, 75, 100, 150, 200];
 const MIN_LAYER_SIZE = 10;
 const TEXT_RASTER_SCALE = 6;
+// Konva requires literal colors for editor overlays; matches --rf-accent in Dark.
+const DARK_EDITOR_ACCENT = "#e46544";
 
 interface RasterizedText {
   image: HTMLImageElement;
@@ -322,13 +324,15 @@ function DraftZoomInput({ value, onCommit }: DraftZoomInputProps) {
 
 interface EditableTextLayerProps {
   fontRevision: number;
+  theme: "light" | "dark";
   layer: TextLayer;
   row: BatchRow | null;
   isSelected: boolean;
   onSelect: () => void;
 }
 
-function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: EditableTextLayerProps) {
+function EditableTextLayer({ fontRevision, theme, layer, row, isSelected, onSelect }: EditableTextLayerProps) {
+  const editorAccent = theme === "dark" ? DARK_EDITOR_ACCENT : "#2f80ed";
   const rectRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const updateLayer = useProjectStore((state) => state.updateLayer);
@@ -408,12 +412,12 @@ function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: E
         <Transformer
           ref={transformerRef}
           anchorCornerRadius={3}
-          anchorFill="#2f80ed"
+          anchorFill={editorAccent}
           anchorSize={12}
           anchorStroke="#ffffff"
           anchorStrokeWidth={2}
           borderDash={[8, 6]}
-          borderStroke="#2f80ed"
+          borderStroke={editorAccent}
           borderStrokeWidth={2}
           boundBoxFunc={(oldBox, newBox) =>
             Math.abs(newBox.width) < MIN_LAYER_SIZE || Math.abs(newBox.height) < MIN_LAYER_SIZE
@@ -429,6 +433,7 @@ function EditableTextLayer({ fontRevision, layer, row, isSelected, onSelect }: E
 }
 
 interface EditableImageSlotProps {
+  theme: "light" | "dark";
   layer: ImageSlotLayer;
   row: BatchRow | null;
   image: HTMLImageElement | null;
@@ -436,7 +441,8 @@ interface EditableImageSlotProps {
   onSelect: () => void;
 }
 
-function EditableImageSlot({ layer, image, isSelected, onSelect }: EditableImageSlotProps) {
+function EditableImageSlot({ theme, layer, image, isSelected, onSelect }: EditableImageSlotProps) {
+  const editorAccent = theme === "dark" ? DARK_EDITOR_ACCENT : "#2f80ed";
   const rectRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const updateLayer = useProjectStore((state) => state.updateLayer);
@@ -500,7 +506,7 @@ function EditableImageSlot({ layer, image, isSelected, onSelect }: EditableImage
         ref={rectRef}
         dash={image ? undefined : [12, 8]}
         draggable={isSelected}
-        fill={image ? "rgba(255,255,255,0.001)" : "rgba(47,128,237,0.12)"}
+        fill={image ? "rgba(255,255,255,0.001)" : theme === "dark" ? "rgba(228,101,68,0.12)" : "rgba(47,128,237,0.12)"}
         height={layer.height}
         name={EDITOR_OVERLAY_NAME}
         onClick={onSelect}
@@ -510,7 +516,7 @@ function EditableImageSlot({ layer, image, isSelected, onSelect }: EditableImage
         onTransform={(event) => commitRect(event.target as Konva.Rect)}
         onTransformEnd={(event) => commitRect(event.target as Konva.Rect)}
         rotation={layer.rotation}
-        stroke={isSelected ? "rgba(255,255,255,0.001)" : "#86a8d9"}
+        stroke={isSelected ? "rgba(255,255,255,0.001)" : theme === "dark" ? "rgba(228,101,68,0.45)" : "#86a8d9"}
         strokeWidth={isSelected ? 1 : 2}
         width={layer.width}
         x={layer.x}
@@ -520,12 +526,12 @@ function EditableImageSlot({ layer, image, isSelected, onSelect }: EditableImage
         <Transformer
           ref={transformerRef}
           anchorCornerRadius={3}
-          anchorFill="#2f80ed"
+          anchorFill={editorAccent}
           anchorSize={12}
           anchorStroke="#ffffff"
           anchorStrokeWidth={2}
           borderDash={[8, 6]}
-          borderStroke="#2f80ed"
+          borderStroke={editorAccent}
           borderStrokeWidth={2}
           boundBoxFunc={(oldBox, newBox) =>
             Math.abs(newBox.width) < MIN_LAYER_SIZE || Math.abs(newBox.height) < MIN_LAYER_SIZE
@@ -714,9 +720,10 @@ function renderTemplateToDataUrl(
 
 interface DecklistStageProps {
   fontRevision: number;
+  theme: "light" | "dark";
 }
 
-export function DecklistStage({ fontRevision }: DecklistStageProps) {
+export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState({ width: 900, height: 900 });
@@ -940,6 +947,7 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
                 layer.type === "text" ? (
                   <EditableTextLayer
                     fontRevision={fontRevision}
+                    theme={theme}
                     isSelected={selectedLayerId === layer.id}
                     key={`${layer.id}-${fontRevision}`}
                     layer={layer}
@@ -948,6 +956,7 @@ export function DecklistStage({ fontRevision }: DecklistStageProps) {
                   />
                 ) : (
                   <EditableImageSlot
+                    theme={theme}
                     image={
                       layer.dynamic && activeRow?.values[layer.id]
                         ? images[activeRow.values[layer.id]] ?? images[layer.assetId ?? ""] ?? null

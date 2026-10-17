@@ -443,7 +443,7 @@ export default function App() {
           collapsed={leftSidebarCollapsed}
           onToggleCollapsed={() => setLeftSidebarCollapsed((collapsed) => !collapsed)}
         />
-        <DecklistStage fontRevision={fontRevision} />
+        <DecklistStage fontRevision={fontRevision} theme={theme} />
         <RightPanel
           collapsed={rightSidebarCollapsed}
           onToggleCollapsed={() => setRightSidebarCollapsed((collapsed) => !collapsed)}
