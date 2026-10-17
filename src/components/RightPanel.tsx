@@ -96,6 +96,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
       <div className="panel-tabs">
         <button
           className={tab === "layers" ? "tab-button-active" : ""}
+          aria-pressed={tab === "layers"}
           type="button"
           onClick={() => setTab("layers")}
         >
@@ -104,6 +105,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
         </button>
         <button
           className={tab === "batch" ? "tab-button-active" : ""}
+          aria-pressed={tab === "batch"}
           type="button"
           onClick={() => setTab("batch")}
         >
@@ -125,6 +127,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                 >
                   <button
                     className="layer-select"
+                    aria-pressed={selectedLayerId === layer.id}
                     type="button"
                     onClick={() => selectLayer(layer.id)}
                   >
@@ -198,6 +201,8 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                     <td>
                       <button
                         className="batch-row-select"
+                        aria-label={`Select batch row ${index + 1}`}
+                        aria-pressed={selectedBatchRowId === row.id}
                         type="button"
                         onClick={() => selectBatchRow(row.id)}
                       >
@@ -207,6 +212,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                     {textLayers.map((layer) => (
                       <td key={layer.id}>
                         <textarea
+                          aria-label={`${layer.id}, batch row ${index + 1}`}
                           value={row.values[layer.id] ?? ""}
                           placeholder={layer.text}
                           onChange={(event) =>

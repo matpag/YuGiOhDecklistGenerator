@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Eye, FileJson, FolderOpen, Moon, Save, SaveAll, Sun, X } from "lucide-react";
+import { ChevronDown, Download, Eye, FileJson, FolderOpen, Moon, Save, SaveAll, Sun, X } from "lucide-react";
 import { DecklistStage } from "./components/DecklistStage";
 import { EditorSidebar } from "./components/EditorSidebar";
 import { RightPanel } from "./components/RightPanel";
@@ -311,10 +311,21 @@ export default function App() {
 
   return (
     <main className="app-shell" aria-busy={busyAction !== null}>
-      <header className="topbar">
-        <div>
-          <h1>Decklist Maker</h1>
-        </div>
+      <h1 className="visually-hidden">Decklist Generator</h1>
+      <header className="topbar rf-suite-header rf-suite-header--compact">
+        <a className="rf-brand" href="https://retroformats.com/" aria-label="Retroformats home">
+          <img
+            className="rf-brand__mark"
+            src={`${import.meta.env.BASE_URL}retroformats/retroformats-mark.svg`}
+            alt=""
+            width="38"
+            height="38"
+          />
+          <span>
+            retroformats<span className="rf-brand__dot">.</span>
+            <span className="rf-brand__product">Decklist Generator</span>
+          </span>
+        </a>
         {openedTemplateName ? (
           <div className="open-file-status" title={openedTemplateName}>
             <span>Template</span>
@@ -322,7 +333,7 @@ export default function App() {
             {templateFileHandle ? <small>direct save enabled</small> : <small>download save</small>}
           </div>
         ) : null}
-        <div className="topbar-actions">
+        <div className="topbar-actions rf-suite-actions">
           <input
             ref={fileInputRef}
             className="visually-hidden"
@@ -336,6 +347,7 @@ export default function App() {
           <button
             type="button"
             title="Open template"
+            aria-label="Open template"
             disabled={busyAction !== null}
             onClick={() => void handleOpenTemplate()}
           >
@@ -348,6 +360,7 @@ export default function App() {
                 ? "Save template to the opened file"
                 : "Save template as a new file"
             }
+            aria-label={templateFileHandle ? "Save template to the opened file" : "Save template as a new file"}
             disabled={busyAction !== null}
             onClick={() => void handleSaveTemplate()}
           >
@@ -356,6 +369,7 @@ export default function App() {
           <button
             type="button"
             title="Save template as"
+            aria-label="Save template as"
             disabled={busyAction !== null}
             onClick={() => void handleSaveTemplateAs()}
           >
@@ -365,14 +379,17 @@ export default function App() {
           <button
             type="button"
             title="Preview selected row"
+            aria-label="Preview selected row"
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:preview-current")}
           >
             <Eye size={18} />
           </button>
           <button
+            className="rf-action-primary"
             type="button"
             title="Export selected row"
+            aria-label="Export selected row as PNG"
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:export-current")}
           >
@@ -382,6 +399,7 @@ export default function App() {
           <button
             type="button"
             title="Export every row"
+            aria-label="Export every row as PNG"
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:export-all")}
           >
@@ -392,6 +410,7 @@ export default function App() {
             className="theme-toggle"
             type="button"
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             aria-pressed={theme === "dark"}
             disabled={busyAction !== null}
             onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
@@ -399,6 +418,19 @@ export default function App() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === "dark" ? "Light" : "Dark"}</span>
           </button>
+          <details className="rf-suite-switcher">
+            <summary>
+              Tools
+              <ChevronDown aria-hidden="true" size={14} />
+            </summary>
+            <nav className="rf-suite-nav" aria-label="Retroformats tools">
+              <a href="https://retroformats.com/">Retroformats home</a>
+              <a href="https://retroformats.com/probability/">Probability Calculator</a>
+              <a href="https://retroformats.com/proxy/">Proxy Generator</a>
+              <a href="https://retroformats.com/decklist/" aria-current="page">Decklist Generator</a>
+              <a href="https://retroformats.com/breakdown/">Breakdown Generator</a>
+            </nav>
+          </details>
         </div>
       </header>
 
@@ -455,6 +487,7 @@ export default function App() {
                 <button
                   type="button"
                   title="Download preview"
+                  aria-label="Download PNG preview"
                   onClick={() => {
                     const link = document.createElement("a");
                     link.download = "decklist-preview.png";
@@ -464,7 +497,7 @@ export default function App() {
                 >
                   <Download size={17} />
                 </button>
-                <button type="button" title="Close preview" onClick={() => setPngPreviewUrl(null)}>
+                <button type="button" title="Close preview" aria-label="Close PNG preview" onClick={() => setPngPreviewUrl(null)}>
                   <X size={17} />
                 </button>
               </div>
