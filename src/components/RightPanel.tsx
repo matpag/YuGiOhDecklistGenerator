@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useState } from "react";
+import { useI18n } from "../i18n/I18n";
 import { fileToAsset, IMAGE_FILE_ACCEPT, validateAssetFile } from "../lib/assets";
 import { isDynamicLayer } from "../lib/layers";
 import { useProjectStore } from "../store/projectStore";
@@ -28,6 +29,7 @@ interface RightPanelProps {
 }
 
 export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
+  const { t, errorMessage } = useI18n();
   const [tab, setTab] = useState<PanelTab>("batch");
   const template = useProjectStore((state) => state.template);
   const selectedLayerId = useProjectStore((state) => state.selectedLayerId);
@@ -57,13 +59,15 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
 
     const validationError = validateAssetFile(file, "image");
     if (validationError) {
-      window.alert(validationError);
+      window.alert(errorMessage(validationError, "errorReadAsset"));
       return;
     }
 
-    const asset = await fileToAsset(file);
-    addAsset(asset);
-    updateBatchValue(rowId, layerId, asset.id);
+    try {
+      const asset = await fileToAsset(file);
+      addAsset(asset);
+      updateBatchValue(rowId, layerId, asset.id);
+    } catch (error) { window.alert(errorMessage(error, "errorReadAsset")); }
   }
 
   if (collapsed) {
@@ -71,7 +75,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
       <aside className="right-panel right-panel-collapsed">
         <button
           className="sidebar-collapse-button"
-          title="Expand batch sidebar"
+          title={t("expandBatch")}
           type="button"
           onClick={onToggleCollapsed}
         >
@@ -86,7 +90,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
       <div className="right-panel-header">
         <button
           className="sidebar-collapse-button"
-          title="Collapse batch sidebar"
+          title={t("collapseBatch")}
           type="button"
           onClick={onToggleCollapsed}
         >
@@ -101,7 +105,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
           onClick={() => setTab("layers")}
         >
           <Layers size={16} />
-          Layers
+          {t("layers")}
         </button>
         <button
           className={tab === "batch" ? "tab-button-active" : ""}
@@ -110,13 +114,13 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
           onClick={() => setTab("batch")}
         >
           <Rows3 size={16} />
-          Batch
+          {t("batch")}
         </button>
       </div>
 
       {tab === "layers" ? (
         <section className="panel right-panel-body">
-          <h2>Layer Stack</h2>
+          <h2>{t("layerStack")}</h2>
           <div className="layer-list">
             {[...template.layers].reverse().map((layer, reverseIndex) => {
               const index = template.layers.length - 1 - reverseIndex;
@@ -134,13 +138,13 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                     {layerIcon(layer)}
                     <span>
                       <strong>{layer.id}</strong>
-                      <small>{layer.type === "text" ? "Text layer" : "Image slot"}</small>
+                      <small>{layer.type === "text" ? t("textLayer") : t("imageSlot")}</small>
                     </span>
                   </button>
                   <button
                     className="icon-button"
                     disabled={index >= template.layers.length - 1}
-                    title="Move up"
+                    title={t("moveUp")}
                     type="button"
                     onClick={() => moveLayer(layer.id, 1)}
                   >
@@ -149,7 +153,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                   <button
                     className="icon-button"
                     disabled={index <= 0}
-                    title="Move down"
+                    title={t("moveDown")}
                     type="button"
                     onClick={() => moveLayer(layer.id, -1)}
                   >
@@ -157,7 +161,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                   </button>
                   <button
                     className="icon-button danger-button"
-                    title="Delete"
+                    title={t("delete")}
                     type="button"
                     onClick={() => removeLayer(layer.id)}
                   >
@@ -171,17 +175,17 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
       ) : (
         <section className="panel right-panel-body">
           <div className="panel-heading-row">
-            <h2>Batch Rows</h2>
+            <h2>{t("batchRows")}</h2>
             <button type="button" onClick={addBatchRow}>
               <Plus size={16} />
-              Row
+              {t("row")}
             </button>
           </div>
           <div className="batch-table-wrap">
             <table className="batch-table">
               <thead>
                 <tr>
-                  <th>Row</th>
+                  <th>{t("row")}</th>
                   {textLayers.map((layer) => (
                     <th key={layer.id}>{layer.id}</th>
                   ))}
@@ -201,7 +205,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                     <td>
                       <button
                         className="batch-row-select"
-                        aria-label={`Select batch row ${index + 1}`}
+                        aria-label={t("selectRow", { row: index + 1 })}
                         aria-pressed={selectedBatchRowId === row.id}
                         type="button"
                         onClick={() => selectBatchRow(row.id)}
@@ -212,7 +216,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                     {textLayers.map((layer) => (
                       <td key={layer.id}>
                         <textarea
-                          aria-label={`${layer.id}, batch row ${index + 1}`}
+                          aria-label={t("batchCell", { id: layer.id, row: index + 1 })}
                           value={row.values[layer.id] ?? ""}
                           placeholder={layer.text}
                           onChange={(event) =>
@@ -229,7 +233,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                         <td key={layer.id}>
                           <label className="small-file-button">
                             <Upload size={14} />
-                            {asset ? asset.name : "Image"}
+                            {asset ? asset.name : t("image")}
                             <input
                               accept={IMAGE_FILE_ACCEPT}
                               type="file"
@@ -246,7 +250,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                       <div className="row-actions">
                         <button
                           className="icon-button"
-                          title="Duplicate row"
+                          title={t("duplicateRow")}
                           type="button"
                           onClick={() => duplicateBatchRow(row.id)}
                         >
@@ -255,7 +259,7 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
                         <button
                           className="icon-button danger-button"
                           disabled={batchRows.length <= 1}
-                          title="Delete row"
+                          title={t("deleteRow")}
                           type="button"
                           onClick={() => removeBatchRow(row.id)}
                         >

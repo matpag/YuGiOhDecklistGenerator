@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n/I18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -220,13 +221,14 @@ interface CommonLayerControlsProps {
 }
 
 function CommonLayerControls({ layer }: CommonLayerControlsProps) {
+  const { t } = useI18n();
   const updateLayer = useProjectStore((state) => state.updateLayer);
   const setLayerId = useProjectStore((state) => state.setLayerId);
 
   return (
     <>
       <label>
-        Layer ID
+        {t("layerId")}
         <input value={layer.id} onChange={(event) => setLayerId(layer.id, event.target.value)} />
       </label>
       <label className="checkbox-row">
@@ -235,7 +237,7 @@ function CommonLayerControls({ layer }: CommonLayerControlsProps) {
           type="checkbox"
           onChange={(event) => updateLayer(layer.id, { dynamic: event.target.checked })}
         />
-        Use this layer in batch rows
+        {t("dynamic")}
       </label>
       <FieldRow>
         <NumberField
@@ -251,20 +253,20 @@ function CommonLayerControls({ layer }: CommonLayerControlsProps) {
       </FieldRow>
       <FieldRow>
         <NumberField
-          label="Width"
+          label={t("width")}
           min={1}
           value={layer.width}
           onChange={(value) => updateLayer(layer.id, { width: value })}
         />
         <NumberField
-          label="Height"
+          label={t("height")}
           min={1}
           value={layer.height}
           onChange={(value) => updateLayer(layer.id, { height: value })}
         />
       </FieldRow>
       <NumberField
-        label="Rotation"
+        label={t("rotation")}
         value={layer.rotation}
         onChange={(value) => updateLayer(layer.id, { rotation: value })}
       />
@@ -279,12 +281,13 @@ interface TextControlsProps {
 }
 
 function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
+  const { t } = useI18n();
   const updateLayer = useProjectStore((state) => state.updateLayer);
 
   return (
     <>
       <label>
-        Default text
+        {t("defaultText")}
         <textarea
           value={layer.text}
           onChange={(event) => updateLayer(layer.id, { text: event.target.value })}
@@ -292,9 +295,9 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
       </label>
       <FieldRow>
         <div className="field-label">
-          <span>Font</span>
+          <span>{t("font")}</span>
           <FontSelect
-            label="Font"
+            label={t("font")}
             options={fontOptions}
             value={layer.fontFamily}
             onOpen={onFontOpen}
@@ -302,27 +305,27 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
           />
         </div>
         <label>
-          Style
+          {t("style")}
           <select
             value={layer.fontStyle}
             onChange={(event) => updateLayer(layer.id, { fontStyle: event.target.value })}
           >
-            <option value="normal">Normal</option>
-            <option value="bold">Bold</option>
-            <option value="italic">Italic</option>
-            <option value="bold italic">Bold italic</option>
+            <option value="normal">{t("normal")}</option>
+            <option value="bold">{t("bold")}</option>
+            <option value="italic">{t("italic")}</option>
+            <option value="bold italic">{t("boldItalic")}</option>
           </select>
         </label>
       </FieldRow>
       <FieldRow>
         <NumberField
-          label="Font size"
+          label={t("fontSize")}
           min={1}
           value={layer.fontSize}
           onChange={(value) => updateLayer(layer.id, { fontSize: value })}
         />
         <NumberField
-          label="Line height"
+          label={t("lineHeight")}
           min={0.5}
           step={0.05}
           value={layer.lineHeight}
@@ -331,38 +334,38 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
       </FieldRow>
       <FieldRow>
         <ColorField
-          label="Fill"
+          label={t("fill")}
           value={layer.fill}
           onChange={(value) => updateLayer(layer.id, { fill: value })}
         />
         <ColorField
-          label="Stroke"
+          label={t("stroke")}
           value={layer.stroke}
           onChange={(value) => updateLayer(layer.id, { stroke: value })}
         />
       </FieldRow>
       <NumberField
-        label="Stroke width"
+        label={t("strokeWidth")}
         min={0}
         value={layer.strokeWidth}
         onChange={(value) => updateLayer(layer.id, { strokeWidth: value })}
       />
       <FieldRow>
         <label>
-          Align
+          {t("align")}
           <select
             value={layer.align}
             onChange={(event) =>
               updateLayer(layer.id, { align: event.target.value as TextLayer["align"] })
             }
           >
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
+            <option value="left">{t("left")}</option>
+            <option value="center">{t("center")}</option>
+            <option value="right">{t("right")}</option>
           </select>
         </label>
         <label>
-          Vertical
+          {t("vertical")}
           <select
             value={layer.verticalAlign}
             onChange={(event) =>
@@ -371,9 +374,9 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
               })
             }
           >
-            <option value="top">Top</option>
-            <option value="middle">Middle</option>
-            <option value="bottom">Bottom</option>
+            <option value="top">{t("top")}</option>
+            <option value="middle">{t("middle")}</option>
+            <option value="bottom">{t("bottom")}</option>
           </select>
         </label>
       </FieldRow>
@@ -383,7 +386,7 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
           type="checkbox"
           onChange={(event) => updateLayer(layer.id, { autoShrink: event.target.checked })}
         />
-        Auto-shrink dynamic text
+        {t("autoShrink")}
       </label>
       <label className="checkbox-row">
         <input
@@ -391,30 +394,30 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
           type="checkbox"
           onChange={(event) => updateLayer(layer.id, { shadowEnabled: event.target.checked })}
         />
-        Shadow
+        {t("shadow")}
       </label>
       {layer.shadowEnabled ? (
         <>
           <ColorField
-            label="Shadow color"
+            label={t("shadowColor")}
             value={layer.shadowColor}
             onChange={(value) => updateLayer(layer.id, { shadowColor: value })}
           />
           <FieldRow>
             <NumberField
-              label="Blur"
+              label={t("blur")}
               min={0}
               value={layer.shadowBlur}
               onChange={(value) => updateLayer(layer.id, { shadowBlur: value })}
             />
             <NumberField
-              label="Offset X"
+              label={t("offsetX")}
               value={layer.shadowOffsetX}
               onChange={(value) => updateLayer(layer.id, { shadowOffsetX: value })}
             />
           </FieldRow>
           <NumberField
-            label="Offset Y"
+            label={t("offsetY")}
             value={layer.shadowOffsetY}
             onChange={(value) => updateLayer(layer.id, { shadowOffsetY: value })}
           />
@@ -425,6 +428,7 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
 }
 
 function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
+  const { t, errorMessage } = useI18n();
   const assets = useProjectStore((state) => state.assets);
   const addAsset = useProjectStore((state) => state.addAsset);
   const updateLayer = useProjectStore((state) => state.updateLayer);
@@ -437,33 +441,35 @@ function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
 
     const validationError = validateAssetFile(file, "image");
     if (validationError) {
-      window.alert(validationError);
+      window.alert(errorMessage(validationError, "errorReadAsset"));
       return;
     }
 
-    const asset = await fileToAsset(file);
-    addAsset(asset);
-    updateLayer(layer.id, { assetId: asset.id });
+    try {
+      const asset = await fileToAsset(file);
+      addAsset(asset);
+      updateLayer(layer.id, { assetId: asset.id });
+    } catch (error) { window.alert(errorMessage(error, "errorReadAsset")); }
   }
 
   return (
     <>
       <label>
-        Fit
+        {t("fit")}
         <select
           value={layer.fit}
           onChange={(event) =>
             updateLayer(layer.id, { fit: event.target.value as ImageSlotLayer["fit"] })
           }
         >
-          <option value="contain">Contain</option>
-          <option value="cover">Cover</option>
-          <option value="stretch">Stretch</option>
+          <option value="contain">{t("contain")}</option>
+          <option value="cover">{t("cover")}</option>
+          <option value="stretch">{t("stretch")}</option>
         </select>
       </label>
       <label className="file-button">
         <Upload size={17} />
-        {slotAsset ? slotAsset.name : "Upload slot image"}
+        {slotAsset ? slotAsset.name : t("uploadSlot")}
         <input
           accept={IMAGE_FILE_ACCEPT}
           type="file"
@@ -475,7 +481,7 @@ function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
       </label>
       {layer.dynamic && slotAsset ? (
         <p className="field-warning">
-          This image will be replaced at export time by the batch row image.
+          {t("imageReplacement")}
         </p>
       ) : null}
     </>
@@ -488,6 +494,7 @@ interface EditorSidebarProps {
 }
 
 export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarProps) {
+  const { t, errorMessage } = useI18n();
   const selectedLayer = useProjectStore(selectedLayerFromState);
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
@@ -550,13 +557,15 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
 
     const validationError = validateAssetFile(file, "image");
     if (validationError) {
-      window.alert(validationError);
+      window.alert(errorMessage(validationError, "errorReadAsset"));
       return;
     }
 
-    const asset = await fileToAsset(file);
-    addAsset(asset);
-    setBackgroundAsset(asset.id);
+    try {
+      const asset = await fileToAsset(file);
+      addAsset(asset);
+      setBackgroundAsset(asset.id);
+    } catch (error) { window.alert(errorMessage(error, "errorReadAsset")); }
   }
 
   async function handleFontFile(file: File | undefined) {
@@ -566,13 +575,15 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
 
     const validationError = validateAssetFile(file, "font");
     if (validationError) {
-      window.alert(validationError);
+      window.alert(errorMessage(validationError, "errorReadAsset"));
       return;
     }
 
-    const asset = await fileToAsset(file);
+    let asset;
+    try { asset = await fileToAsset(file); }
+    catch (error) { window.alert(errorMessage(error, "errorReadAsset")); return; }
     const defaultFamily = inferFontFamilyFromFileName(file.name);
-    const alias = window.prompt("Font alias name", defaultFamily);
+    const alias = window.prompt(t("fontAlias"), defaultFamily);
     const family = alias?.trim() || defaultFamily;
     const font: EmbeddedFont = {
       id: `font-${crypto.randomUUID()}`,
@@ -583,7 +594,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
     try {
       await registerEmbeddedFont(font, asset);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Could not load this font file.");
+      window.alert(errorMessage(error, "errorFont"));
       return;
     }
 
@@ -610,7 +621,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
       <aside className="sidebar sidebar-collapsed">
         <button
           className="sidebar-collapse-button"
-          title="Expand editor sidebar"
+          title={t("expandEditor")}
           type="button"
           onClick={onToggleCollapsed}
         >
@@ -624,23 +635,23 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
     <aside className="sidebar">
       <button
         className="sidebar-collapse-button sidebar-collapse-button-inline"
-        title="Collapse editor sidebar"
+        title={t("collapseEditor")}
         type="button"
         onClick={onToggleCollapsed}
       >
         <PanelLeftClose size={18} />
       </button>
       <section className="panel">
-        <h2>Canvas</h2>
+        <h2>{t("canvas")}</h2>
         <FieldRow>
           <NumberField
-            label="Width"
+            label={t("width")}
             min={1}
             value={template.canvas.width}
             onChange={(value) => updateCanvas({ width: Math.round(value) })}
           />
           <NumberField
-            label="Height"
+            label={t("height")}
             min={1}
             value={template.canvas.height}
             onChange={(value) => updateCanvas({ height: Math.round(value) })}
@@ -649,11 +660,11 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
       </section>
       <section className="panel">
         <div className="panel-heading-row">
-          <h2>Template</h2>
+          <h2>{t("template")}</h2>
         </div>
         <label className="file-button">
           <FileImage size={17} />
-          Background
+          {t("background")}
           <input
             accept={IMAGE_FILE_ACCEPT}
             type="file"
@@ -665,7 +676,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
         </label>
         <label className="file-button">
           <Upload size={17} />
-          Font file
+          {t("fontFile")}
           <input
             accept={FONT_FILE_ACCEPT}
             type="file"
@@ -682,11 +693,11 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
                 <Type size={15} />
                 <span style={{ fontFamily: font.family }}>
                   <strong>{font.family}</strong>
-                  <small>{assets[font.assetId]?.name ?? "Embedded font"}</small>
+                  <small>{assets[font.assetId]?.name ?? t("embeddedFont")}</small>
                 </span>
                 <button
                   className="icon-button danger-button"
-                  title={`Delete ${font.family}`}
+                  title={t("deleteNamed", { name: font.family })}
                   type="button"
                   onClick={() => handleRemoveFont(font)}
                 >
@@ -696,33 +707,33 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
             ))}
           </div>
         ) : (
-          <p className="empty-state">No custom fonts embedded yet.</p>
+          <p className="empty-state">{t("noFonts")}</p>
         )}
       </section>
 
       <section className="panel">
         <div className="panel-heading-row">
-          <h2>Add Layer</h2>
+          <h2>{t("addLayer")}</h2>
         </div>
         <div className="layer-add-grid">
           <button type="button" onClick={addTextLayer}>
             <Type size={17} />
-            Text
+            {t("text")}
           </button>
           <button type="button" onClick={addImageSlotLayer}>
             <RectangleHorizontal size={17} />
-            Image slot
+            {t("imageSlot")}
           </button>
         </div>
       </section>
 
       <section className="panel">
         <div className="panel-heading-row">
-          <h2>Selected Layer</h2>
+          <h2>{t("selectedLayer")}</h2>
           {selectedLayer ? (
             <button
               className="icon-button danger-button"
-              title="Delete layer"
+              title={t("deleteLayer")}
               type="button"
               onClick={() => removeLayer(selectedLayer.id)}
             >
@@ -734,7 +745,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
           <>
             <div className="layer-type-pill">
               {selectedLayer.type === "text" ? <Type size={15} /> : <ImageIcon size={15} />}
-              {selectedLayer.type === "text" ? "Text layer" : "Image slot"}
+              {selectedLayer.type === "text" ? t("textLayer") : t("imageSlot")}
             </div>
             <CommonLayerControls layer={selectedLayer} />
             {selectedLayer.type === "text" ? (
@@ -748,7 +759,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
             )}
           </>
         ) : (
-          <p className="empty-state">Select a layer on the canvas or from the layer list.</p>
+          <p className="empty-state">{t("selectLayer")}</p>
         )}
       </section>
     </aside>
@@ -756,6 +767,7 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
 }
 
 function FontSelect({ label, onChange, onOpen, options, value }: FontSelectProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const skipNextFocusOpenRef = useRef(false);
@@ -984,7 +996,7 @@ function FontSelect({ label, onChange, onOpen, options, value }: FontSelectProps
                   </button>
                 ))
               ) : (
-                <div className="font-select-empty">No fonts found</div>
+                <div className="font-select-empty">{t("noFontsFound")}</div>
               )}
             </div>,
             document.body,

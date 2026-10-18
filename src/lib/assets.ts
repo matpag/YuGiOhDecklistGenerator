@@ -1,3 +1,4 @@
+import { UiError } from "../i18n/messages";
 import type { ProjectAsset } from "../types/project";
 
 export const IMAGE_FILE_ACCEPT = "image/*,.avif,.bmp,.gif,.jpg,.jpeg,.png,.svg,.webp";
@@ -37,15 +38,15 @@ export function isFontFile(file: File) {
 
 export function validateAssetFile(file: File, type: "image" | "font") {
   if (file.size > MAX_ASSET_FILE_SIZE_BYTES) {
-    return `${file.name} is larger than 20 MB.`;
+    return new UiError("assetTooLarge", { name: file.name });
   }
 
   if (type === "image" && !isImageFile(file)) {
-    return `${file.name} is not an image file.`;
+    return new UiError("assetNotImage", { name: file.name });
   }
 
   if (type === "font" && !isFontFile(file)) {
-    return `${file.name} is not a supported font file.`;
+    return new UiError("assetNotFont", { name: file.name });
   }
 
   return null;

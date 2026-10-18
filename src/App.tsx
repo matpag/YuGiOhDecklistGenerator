@@ -8,30 +8,24 @@ import { registerEmbeddedFonts } from "./lib/fonts";
 import { exportTemplateArchive, importTemplateArchive } from "./lib/templateArchive";
 import { createTemplateDocument, templateFileName } from "./lib/templateDocument";
 import { useProjectStore } from "./store/projectStore";
+import { LanguageControl, useI18n } from "./i18n/I18n";
+import type { MessageKey, MessageValues } from "./i18n/messages";
 import type { TemplateLayer } from "./types/project";
 
 type Theme = "light" | "dark";
 type BusyAction = "opening" | "saving" | "exporting";
 type Notice = {
   id: number;
-  message: string;
+  key: MessageKey;
+  values?: MessageValues;
 };
 
-const BUSY_MESSAGES: Record<BusyAction, string> = {
-  opening: "Opening template...",
-  saving: "Saving template...",
-  exporting: "Preparing export...",
+const BUSY_MESSAGES: Record<BusyAction, MessageKey> = {
+  opening: "opening",
+  saving: "saving",
+  exporting: "exporting",
 };
 
-const TEMPLATE_PICKER_TYPES: FilePickerAcceptType[] = [
-  {
-    description: "Decklist template",
-    accept: {
-      "application/vnd.dhdecktemplate+zip": [".dhdecktemplate"],
-      "application/json": [".json"],
-    },
-  },
-];
 
 function waitForPaint() {
   return new Promise<void>((resolve) => {
@@ -56,6 +50,16 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 }
 
 export default function App() {
+  const { t, link, errorMessage } = useI18n();
+  const pickerTypes: FilePickerAcceptType[] = [
+    {
+      description: t("templateFile"),
+      accept: {
+        "application/vnd.dhdecktemplate+zip": [".dhdecktemplate"],
+        "application/json": [".json"],
+      },
+    },
+  ];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const layerClipboardRef = useRef<TemplateLayer | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
@@ -66,9 +70,10 @@ export default function App() {
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
-  const [theme, setTheme] = useState<Theme>(() =>
-    window.localStorage.getItem("decklist-maker-theme") === "light" ? "light" : "dark",
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    try { return window.localStorage.getItem("decklist-maker-theme") === "light" ? "light" : "dark"; }
+    catch { return "dark"; }
+  });
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
   const loadDocument = useProjectStore((state) => state.loadDocument);
@@ -92,29 +97,29 @@ export default function App() {
       if (copyShortcut && selectedLayer) {
         event.preventDefault();
         layerClipboardRef.current = structuredClone(selectedLayer);
-        showNotice(`Copied ${selectedLayer.id}.`);
+        showNotice("copied", { id: selectedLayer.id });
       }
 
       if (pasteShortcut && layerClipboardRef.current) {
         event.preventDefault();
         pasteLayer(layerClipboardRef.current);
-        showNotice("Pasted layer.");
+        showNotice("pasted");
       }
 
       if (deleteShortcut && selectedLayer) {
         event.preventDefault();
         removeLayer(selectedLayer.id);
-        showNotice(`Deleted ${selectedLayer.id}.`);
+        showNotice("deleted", { id: selectedLayer.id });
       }
     }
 
     window.addEventListener("keydown", handleKeyboardShortcut);
     return () => window.removeEventListener("keydown", handleKeyboardShortcut);
-  }, [busyAction, pasteLayer, pngPreviewUrl, removeLayer, selectedLayer]);
+  }, [busyAction, pasteLayer, pngPreviewUrl, removeLayer, selectedLayer, t]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("decklist-maker-theme", theme);
+    try { window.localStorage.setItem("decklist-maker-theme", theme); } catch { /* Theme still works when storage is unavailable. */ }
   }, [theme]);
 
   useEffect(() => {
@@ -155,8 +160,8 @@ export default function App() {
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
 
-  function showNotice(message: string) {
-    setNotice({ id: Date.now(), message });
+  function showNotice(key: MessageKey, values?: MessageValues) {
+    setNotice({ id: Date.now(), key, values });
   }
 
   async function loadTemplateFile(file: File) {
@@ -179,9 +184,9 @@ export default function App() {
       await loadTemplateFile(file);
       setTemplateFileHandle(null);
       setOpenedTemplateName(file.name);
-      showNotice(`Opened ${file.name}.`);
+      showNotice("opened", { name: file.name });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Could not open the template.");
+      window.alert(errorMessage(error, "errorOpen"));
     } finally {
       setBusyAction(null);
     }
@@ -200,7 +205,7 @@ export default function App() {
       const [fileHandle] = await window.showOpenFilePicker({
         excludeAcceptAllOption: false,
         multiple: false,
-        types: TEMPLATE_PICKER_TYPES,
+        types: pickerTypes,
       });
 
       if (!fileHandle) {
@@ -210,13 +215,13 @@ export default function App() {
       await loadTemplateFile(await fileHandle.getFile());
       setTemplateFileHandle(fileHandle);
       setOpenedTemplateName(fileHandle.name);
-      showNotice(`Opened ${fileHandle.name}.`);
+      showNotice("opened", { name: fileHandle.name });
     } catch (error) {
       if (isAbortError(error)) {
         return;
       }
 
-      window.alert(error instanceof Error ? error.message : "Could not open the template.");
+      window.alert(errorMessage(error, "errorOpen"));
     } finally {
       setBusyAction(null);
     }
@@ -244,7 +249,7 @@ export default function App() {
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
-    showNotice(`Downloaded ${fileName}.`);
+    showNotice("downloaded", { name: fileName });
   }
 
   async function handleSaveTemplate() {
@@ -260,9 +265,9 @@ export default function App() {
       }
 
       await writeTemplateFile(templateFileHandle, blob);
-      showNotice(`Saved ${templateFileHandle.name}.`);
+      showNotice("saved", { name: templateFileHandle.name });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Could not save the template.");
+      window.alert(errorMessage(error, "errorSave"));
     } finally {
       setBusyAction(null);
     }
@@ -277,26 +282,26 @@ export default function App() {
 
       if (!window.showSaveFilePicker) {
         downloadTemplate(blob, fileName);
-        showNotice("Direct overwrite is only supported in Chrome/Edge. Downloading a new copy instead.");
+        showNotice("downloadFallback");
         return;
       }
 
       const fileHandle = await window.showSaveFilePicker({
         excludeAcceptAllOption: false,
         suggestedName: fileName,
-        types: TEMPLATE_PICKER_TYPES,
+        types: pickerTypes,
       });
 
       await writeTemplateFile(fileHandle, blob);
       setTemplateFileHandle(fileHandle);
       setOpenedTemplateName(fileHandle.name);
-      showNotice(`Saved ${fileHandle.name}.`);
+      showNotice("saved", { name: fileHandle.name });
     } catch (error) {
       if (isAbortError(error)) {
         return;
       }
 
-      window.alert(error instanceof Error ? error.message : "Could not save the template.");
+      window.alert(errorMessage(error, "errorSave"));
     } finally {
       setBusyAction(null);
     }
@@ -311,9 +316,9 @@ export default function App() {
 
   return (
     <main className="app-shell" aria-busy={busyAction !== null}>
-      <h1 className="visually-hidden">Decklist Generator</h1>
+      <h1 className="visually-hidden">{t("product")}</h1>
       <header className="topbar rf-suite-header rf-suite-header--compact">
-        <a className="rf-brand" href="https://retroformats.com/" aria-label="Retroformats home">
+        <a className="rf-brand" href={link("https://retroformats.com/")} aria-label={t("home")}>
           <img
             className="rf-brand__mark"
             src={`${import.meta.env.BASE_URL}retroformats/retroformats-mark.svg`}
@@ -323,14 +328,14 @@ export default function App() {
           />
           <span>
             retroformats<span className="rf-brand__dot">.</span>
-            <span className="rf-brand__product">Decklist Generator</span>
+            <span className="rf-brand__product">{t("product")}</span>
           </span>
         </a>
         {openedTemplateName ? (
           <div className="open-file-status" title={openedTemplateName}>
-            <span>Template</span>
+            <span>{t("template")}</span>
             <strong>{openedTemplateName}</strong>
-            {templateFileHandle ? <small>direct save enabled</small> : <small>download save</small>}
+            {templateFileHandle ? <small>{t("directSave")}</small> : <small>{t("downloadSave")}</small>}
           </div>
         ) : null}
         <div className="topbar-actions rf-suite-actions">
@@ -346,8 +351,8 @@ export default function App() {
           />
           <button
             type="button"
-            title="Open template"
-            aria-label="Open template"
+            title={t("openTemplate")}
+            aria-label={t("openTemplate")}
             disabled={busyAction !== null}
             onClick={() => void handleOpenTemplate()}
           >
@@ -357,10 +362,10 @@ export default function App() {
             type="button"
             title={
               templateFileHandle
-                ? "Save template to the opened file"
-                : "Save template as a new file"
+                ? t("saveOpened")
+                : t("saveNew")
             }
-            aria-label={templateFileHandle ? "Save template to the opened file" : "Save template as a new file"}
+            aria-label={templateFileHandle ? t("saveOpened") : t("saveNew")}
             disabled={busyAction !== null}
             onClick={() => void handleSaveTemplate()}
           >
@@ -368,18 +373,18 @@ export default function App() {
           </button>
           <button
             type="button"
-            title="Save template as"
-            aria-label="Save template as"
+            title={t("saveAs")}
+            aria-label={t("saveAs")}
             disabled={busyAction !== null}
             onClick={() => void handleSaveTemplateAs()}
           >
             <SaveAll size={18} />
-            As
+            {t("as")}
           </button>
           <button
             type="button"
-            title="Preview selected row"
-            aria-label="Preview selected row"
+            title={t("previewRow")}
+            aria-label={t("previewRow")}
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:preview-current")}
           >
@@ -388,47 +393,48 @@ export default function App() {
           <button
             className="rf-action-primary"
             type="button"
-            title="Export selected row"
-            aria-label="Export selected row as PNG"
+            title={t("exportRow")}
+            aria-label={t("exportRowPng")}
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:export-current")}
           >
             <Download size={18} />
-            Current
+            {t("current")}
           </button>
           <button
             type="button"
-            title="Export every row"
-            aria-label="Export every row as PNG"
+            title={t("exportAll")}
+            aria-label={t("exportAllPng")}
             disabled={busyAction !== null}
             onClick={() => void dispatchExport("decklist-maker:export-all")}
           >
             <FileJson size={18} />
-            All
+            {t("all")}
           </button>
           <button
             className="theme-toggle"
             type="button"
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? t("switchLight") : t("switchDark")}
+            aria-label={theme === "dark" ? t("switchLight") : t("switchDark")}
             aria-pressed={theme === "dark"}
             disabled={busyAction !== null}
             onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            <span>{theme === "dark" ? t("light") : t("dark")}</span>
           </button>
+          <LanguageControl />
           <details className="rf-suite-switcher">
             <summary>
-              Tools
+              {t("tools")}
               <ChevronDown aria-hidden="true" size={14} />
             </summary>
-            <nav className="rf-suite-nav" aria-label="Retroformats tools">
-              <a href="https://retroformats.com/">Retroformats home</a>
-              <a href="https://retroformats.com/probability/">Probability Calculator</a>
-              <a href="https://retroformats.com/proxy/">Proxy Generator</a>
-              <a href="https://retroformats.com/decklist/" aria-current="page">Decklist Generator</a>
-              <a href="https://retroformats.com/breakdown/">Breakdown Generator</a>
+            <nav className="rf-suite-nav" aria-label={t("suiteNav")}>
+              <a href={link("https://retroformats.com/")} >{t("home")}</a>
+              <a href={link("https://retroformats.com/probability/")} >{t("probability")}</a>
+              <a href={link("https://retroformats.com/proxy/")} >{t("proxy")}</a>
+              <a href={link("https://retroformats.com/decklist/")} aria-current="page">{t("decklist")}</a>
+              <a href={link("https://retroformats.com/breakdown/")} >{t("breakdown")}</a>
             </nav>
           </details>
         </div>
@@ -454,14 +460,14 @@ export default function App() {
         <div className="loading-backdrop" role="alert" aria-live="assertive">
           <div className="loading-dialog">
             <span className="loading-spinner" aria-hidden="true" />
-            <p>{BUSY_MESSAGES[busyAction]}</p>
+            <p>{t(BUSY_MESSAGES[busyAction])}</p>
           </div>
         </div>
       ) : null}
 
       {notice ? (
         <div className="app-notice" role="status" aria-live="polite">
-          {notice.message}
+          {t(notice.key, notice.values)}
         </div>
       ) : null}
 
@@ -482,12 +488,12 @@ export default function App() {
             aria-labelledby="png-preview-title"
           >
             <header className="png-preview-header">
-              <h2 id="png-preview-title">PNG preview</h2>
+              <h2 id="png-preview-title">{t("pngPreview")}</h2>
               <div className="dialog-actions">
                 <button
                   type="button"
-                  title="Download preview"
-                  aria-label="Download PNG preview"
+                  title={t("downloadPreview")}
+                  aria-label={t("downloadPreview")}
                   onClick={() => {
                     const link = document.createElement("a");
                     link.download = "decklist-preview.png";
@@ -497,13 +503,13 @@ export default function App() {
                 >
                   <Download size={17} />
                 </button>
-                <button type="button" title="Close preview" aria-label="Close PNG preview" onClick={() => setPngPreviewUrl(null)}>
+                <button type="button" title={t("closePreview")} aria-label={t("closePreview")} onClick={() => setPngPreviewUrl(null)}>
                   <X size={17} />
                 </button>
               </div>
             </header>
             <div className="png-preview-body">
-              <img src={pngPreviewUrl} alt="PNG export preview" />
+              <img src={pngPreviewUrl} alt={t("pngAlt")} />
             </div>
           </section>
         </div>

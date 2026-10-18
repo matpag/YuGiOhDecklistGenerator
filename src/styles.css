@@ -966,3 +966,21 @@ label,
     transition: none !important;
   }
 }
+
+/* The language picker shares the suite chrome; wrapping preserves the 980px editor. */
+.topbar-actions {
+  flex: 1 1 620px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar .rf-language-control {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.topbar .rf-language-select {
+  width: auto;
+  max-width: 160px;
+  min-height: 36px;
+}

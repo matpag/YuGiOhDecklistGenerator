@@ -256,3 +256,13 @@ Preview, Export Current, and Export All use the same render path. All editor-onl
 The exported PNG uses the canvas dimensions configured in the Canvas section, regardless of editor zoom.
 
 If the browser asks for permission to download multiple files, allow it when using Export All.
+
+## Interface languages
+
+The complete editor interface is available in English, Italian, German, Spanish and French. The header language selector updates the interface without resetting the template, batch rows, selection, zoom or theme. Document text, layer IDs, uploaded filenames, font names, template archives and exported PNG content are never translated.
+
+Language selection uses a valid `ui_lang=en|it|de|es|fr` URL parameter first, then the valid `retroformats-ui-language` localStorage preference, then the first supported language in `navigator.languages`, and finally English. Storage access is optional: blocked storage does not prevent using the editor. Choosing a language updates `html[lang]`, the current URL with `history.replaceState` and all suite links while preserving other query parameters and the URL hash. Language names in the native selector remain English, Italiano, Deutsch, Español and Français.
+
+`src/i18n/messages.ts` contains the typed five-language catalog. `src/i18n/core.ts` owns preference and URL rules; `I18nProvider` provides React translations and localized application errors. Add every new interface message to all five translations, including title/aria text and errors. Browser-owned native file-picker controls follow the browser/OS language; app-provided picker descriptions are translated.
+
+Run `npm test` for catalog completeness, interpolation, language precedence, blocked storage and link propagation, then `npm run build`. Browser verification should switch all five languages after editing a template and batch row, reload a chosen language, check both themes and compare PNG output before/after the switch. The existing minimum editor width remains 980px.

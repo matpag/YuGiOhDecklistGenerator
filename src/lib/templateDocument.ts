@@ -1,3 +1,4 @@
+import { UiError, type MessageKey, type MessageValues } from "../i18n/messages";
 import { z } from "zod";
 import type { AssetId, DecklistTemplate, ProjectAsset, TemplateDocument } from "../types/project";
 
@@ -84,12 +85,12 @@ export function parseTemplateDocument(input: unknown): TemplateDocument {
     document.template.backgroundAssetId &&
     !document.assets[document.template.backgroundAssetId]
   ) {
-    throw new Error("Invalid template: background image asset is missing.");
+    throw new UiError("missingBackground");
   }
 
   for (const font of document.template.fonts) {
     if (!document.assets[font.assetId]) {
-      throw new Error(`Invalid template: font asset for "${font.family}" is missing.`);
+      throw new UiError("missingFont", { font: font.family });
     }
   }
 
@@ -106,7 +107,7 @@ export function createTemplateDocument(
     templateAssets[template.backgroundAssetId] = requireAsset(
       assets,
       template.backgroundAssetId,
-      "background image",
+      "saveBackground",
     );
   }
 
@@ -114,7 +115,8 @@ export function createTemplateDocument(
     templateAssets[font.assetId] = requireAsset(
       assets,
       font.assetId,
-      `font "${font.family}"`,
+      "saveFont",
+      { font: font.family },
     );
   }
 
@@ -123,7 +125,8 @@ export function createTemplateDocument(
       templateAssets[layer.assetId] = requireAsset(
         assets,
         layer.assetId,
-        `image slot "${layer.id}"`,
+        "saveSlot",
+        { id: layer.id },
       );
     }
   }
@@ -152,12 +155,13 @@ export function templateFileName(template: DecklistTemplate) {
 function requireAsset(
   assets: Record<AssetId, ProjectAsset>,
   assetId: AssetId,
-  label: string,
+  key: MessageKey,
+  values: MessageValues = {},
 ) {
   const asset = assets[assetId];
 
   if (!asset?.dataUrl) {
-    throw new Error(`Could not save template: embedded asset for ${label} is missing.`);
+    throw new UiError(key, values);
   }
 
   return asset;

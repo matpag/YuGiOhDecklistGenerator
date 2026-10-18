@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n/I18n";
+import type { Translator } from "../i18n/messages";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { Group, Image, Layer, Rect, Stage, Transformer } from "react-konva";
@@ -582,6 +584,7 @@ function missingDynamicContentMessages(
   rows: Array<{ row: BatchRow; rowIndex: number }>,
   layers: TemplateLayer[],
   assets: Record<string, ProjectAsset>,
+  t: Translator,
 ) {
   const dynamicLayers = layers.filter(isDynamicLayer);
   const missingMessages: string[] = [];
@@ -591,11 +594,11 @@ function missingDynamicContentMessages(
       const value = row.values[layer.id];
 
       if (layer.type === "text" && !value?.trim()) {
-        missingMessages.push(`Row ${rowIndex + 1}: missing text "${layer.id}"`);
+        missingMessages.push(t("missingText", { row: rowIndex + 1, id: layer.id }));
       }
 
       if (layer.type === "image-slot" && (!value || !assets[value])) {
-        missingMessages.push(`Row ${rowIndex + 1}: missing image "${layer.id}"`);
+        missingMessages.push(t("missingImage", { row: rowIndex + 1, id: layer.id }));
       }
     }
   }
@@ -603,16 +606,12 @@ function missingDynamicContentMessages(
   return missingMessages;
 }
 
-function showMissingDynamicContentError(messages: string[]) {
+function showMissingDynamicContentError(messages: string[], t: Translator) {
   const visibleMessages = messages.slice(0, 12);
   const remainingCount = messages.length - visibleMessages.length;
-  const suffix = remainingCount > 0 ? `\n...and ${remainingCount} more missing fields.` : "";
+  const suffix = remainingCount > 0 ? `\n${t("moreMissing", { count: remainingCount })}` : "";
 
-  window.alert(
-    `Cannot export yet. Please fill all dynamic batch fields first:\n\n${visibleMessages.join(
-      "\n",
-    )}${suffix}`,
-  );
+  window.alert(t("cannotExport", { details: visibleMessages.join("\n") + suffix }));
 }
 
 function drawImageCover(
@@ -724,6 +723,7 @@ interface DecklistStageProps {
 }
 
 export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
+  const { t } = useI18n();
   const stageRef = useRef<Konva.Stage>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState({ width: 900, height: 900 });
@@ -832,10 +832,11 @@ export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
         [{ row, rowIndex }],
         template.layers,
         assets,
+        t,
       );
 
       if (missingMessages.length > 0) {
-        showMissingDynamicContentError(missingMessages);
+        showMissingDynamicContentError(missingMessages, t);
         return;
       }
 
@@ -848,10 +849,10 @@ export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
 
     async function handleExportAll() {
       const rowsWithIndex = batchRows.map((row, rowIndex) => ({ row, rowIndex }));
-      const missingMessages = missingDynamicContentMessages(rowsWithIndex, template.layers, assets);
+      const missingMessages = missingDynamicContentMessages(rowsWithIndex, template.layers, assets, t);
 
       if (missingMessages.length > 0) {
-        showMissingDynamicContentError(missingMessages);
+        showMissingDynamicContentError(missingMessages, t);
         return;
       }
 
@@ -874,7 +875,7 @@ export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
       window.removeEventListener("decklist-maker:export-current", handleExportCurrent);
       window.removeEventListener("decklist-maker:export-all", handleExportAll);
     };
-  }, [assets, batchRows, renderPng, selectedBatchRowId, template.layers]);
+  }, [assets, batchRows, renderPng, selectedBatchRowId, template.layers, t]);
 
   function checkDeselect(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (event.target === event.target.getStage()) {
@@ -885,13 +886,13 @@ export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
   return (
     <section className="preview-pane">
       <div className="preview-toolbar">
-        <div className="zoom-controls" aria-label="Preview zoom">
+        <div className="zoom-controls" aria-label={t("zoomLabel")}>
           <button
             className={zoomMode === "fit" ? "zoom-button-active" : ""}
             type="button"
             onClick={() => setZoomMode("fit")}
           >
-            Fill
+            {t("fitCanvas")}
           </button>
           {ZOOM_PRESETS.map((preset) => (
             <button
@@ -908,7 +909,7 @@ export function DecklistStage({ fontRevision, theme }: DecklistStageProps) {
           ))}
         </div>
         <label className="zoom-custom">
-          Zoom
+          {t("zoom")}
           <DraftZoomInput
             value={zoomMode === "fit" ? Math.round(fitScale * 100) : zoomPercent}
             onCommit={(nextPercent) => {

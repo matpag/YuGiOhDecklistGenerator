@@ -1,3 +1,4 @@
+import { UiError } from "../i18n/messages";
 import JSZip from "jszip";
 import { z } from "zod";
 import type { AssetId, ProjectAsset, TemplateDocument } from "../types/project";
@@ -83,7 +84,7 @@ export async function importTemplateArchive(input: Blob | ArrayBuffer | Uint8Arr
     const manifestFile = zip.file("manifest.json");
 
     if (!manifestFile) {
-      throw new Error("manifest.json is missing.");
+      throw new UiError("missingManifest");
     }
 
     const manifest = archiveManifestSchema.parse(JSON.parse(await manifestFile.async("string")));
@@ -93,7 +94,7 @@ export async function importTemplateArchive(input: Blob | ArrayBuffer | Uint8Arr
       const assetFile = zip.file(manifestAsset.path);
 
       if (!assetFile) {
-        throw new Error(`Asset file "${manifestAsset.path}" is missing.`);
+        throw new UiError("missingArchiveAsset", { path: manifestAsset.path });
       }
 
       const bytes = await assetFile.async("uint8array");
@@ -123,13 +124,13 @@ export async function importTemplateArchive(input: Blob | ArrayBuffer | Uint8Arr
 
 function dataUrlToBytes(dataUrl: string, fallbackMimeType: string): DataUrlPayload {
   if (!dataUrl.startsWith("data:")) {
-    throw new Error("Asset dataUrl must start with data:.");
+    throw new UiError("invalidAsset");
   }
 
   const commaIndex = dataUrl.indexOf(",");
 
   if (commaIndex === -1) {
-    throw new Error("Asset dataUrl is missing a payload separator.");
+    throw new UiError("invalidAsset");
   }
 
   const metadata = dataUrl.slice(5, commaIndex);
