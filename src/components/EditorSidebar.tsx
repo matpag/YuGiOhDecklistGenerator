@@ -429,6 +429,7 @@ function TextControls({ fontOptions, layer, onFontOpen }: TextControlsProps) {
 
 function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
   const { t, errorMessage } = useI18n();
+
   const assets = useProjectStore((state) => state.assets);
   const addAsset = useProjectStore((state) => state.addAsset);
   const updateLayer = useProjectStore((state) => state.updateLayer);
@@ -489,12 +490,23 @@ function ImageSlotControls({ layer }: { layer: ImageSlotLayer }) {
 }
 
 interface EditorSidebarProps {
+  guideRequest?: number;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
 
-export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarProps) {
+export function EditorSidebar({ collapsed, onToggleCollapsed, guideRequest = 0 }: EditorSidebarProps) {
   const { t, errorMessage } = useI18n();
+  useEffect(() => {
+    if (!guideRequest) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.querySelector<HTMLElement>('[data-decklist-guide="layer"] h2');
+      heading?.scrollIntoView({ block: "start" });
+      heading?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [guideRequest]);
+
   const selectedLayer = useProjectStore(selectedLayerFromState);
   const template = useProjectStore((state) => state.template);
   const assets = useProjectStore((state) => state.assets);
@@ -727,9 +739,9 @@ export function EditorSidebar({ collapsed, onToggleCollapsed }: EditorSidebarPro
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" data-decklist-guide="layer">
         <div className="panel-heading-row">
-          <h2>{t("selectedLayer")}</h2>
+          <h2 tabIndex={-1}>{t("selectedLayer")}</h2>
           {selectedLayer ? (
             <button
               className="icon-button danger-button"

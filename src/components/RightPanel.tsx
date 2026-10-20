@@ -10,7 +10,7 @@ import {
   Type,
   Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n/I18n";
 import { fileToAsset, IMAGE_FILE_ACCEPT, validateAssetFile } from "../lib/assets";
 import { isDynamicLayer } from "../lib/layers";
@@ -24,13 +24,26 @@ function layerIcon(layer: TemplateLayer) {
 }
 
 interface RightPanelProps {
+  guideRequest?: { id: number; focus: boolean };
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
 
-export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
+export function RightPanel({ collapsed, onToggleCollapsed, guideRequest }: RightPanelProps) {
   const { t, errorMessage } = useI18n();
   const [tab, setTab] = useState<PanelTab>("batch");
+  const handledGuideRequest = useRef(0);
+  useEffect(() => {
+    if (guideRequest?.id) setTab("batch");
+  }, [guideRequest]);
+  useLayoutEffect(() => {
+    if (!guideRequest?.focus || !guideRequest.id || collapsed || tab !== "batch" || handledGuideRequest.current === guideRequest.id) return;
+    const heading = document.querySelector<HTMLElement>('[data-decklist-guide="rows"] h2');
+    if (!heading) return;
+    heading.scrollIntoView({ block: "start" });
+    heading.focus({ preventScroll: true });
+    handledGuideRequest.current = guideRequest.id;
+  }, [guideRequest, tab, collapsed]);
   const template = useProjectStore((state) => state.template);
   const selectedLayerId = useProjectStore((state) => state.selectedLayerId);
   const selectedBatchRowId = useProjectStore((state) => state.selectedBatchRowId);
@@ -173,9 +186,9 @@ export function RightPanel({ collapsed, onToggleCollapsed }: RightPanelProps) {
           </div>
         </section>
       ) : (
-        <section className="panel right-panel-body">
+        <section className="panel right-panel-body" data-decklist-guide="rows">
           <div className="panel-heading-row">
-            <h2>{t("batchRows")}</h2>
+            <h2 tabIndex={-1}>{t("batchRows")}</h2>
             <button type="button" onClick={addBatchRow}>
               <Plus size={16} />
               {t("row")}

@@ -266,3 +266,17 @@ Language selection uses a valid `ui_lang=en|it|de|es|fr` URL parameter first, th
 `src/i18n/messages.ts` contains the typed five-language catalog. `src/i18n/core.ts` owns preference and URL rules; `I18nProvider` provides React translations and localized application errors. Add every new interface message to all five translations, including title/aria text and errors. Browser-owned native file-picker controls follow the browser/OS language; app-provided picker descriptions are translated.
 
 Run `npm test` for catalog completeness, interpolation, language precedence, blocked storage and link propagation, then `npm run build`. Browser verification should switch all five languages after editing a template and batch row, reload a chosen language, check both themes and compare PNG output before/after the switch. The existing minimum editor width remains 980px.
+
+## Decklist quick-start guide
+
+Use **Guide** in the header for five inline lessons: example, event, player, more rows, and export. The layout matches the Breakdown guide and supports EN/IT/DE/ES/FR. Opening or navigating the guide never changes document data. Show controls opens the appropriate sidebar, selects a static title layer or the row table, and focuses the section heading. Closing returns focus to Guide; Escape closes the PNG preview without closing the guide. Guide and confirmation controls are excluded from destructive editor keyboard shortcuts.
+
+Load example asks before replacing the current template and session rows. Both local image assets must download and decode before the entire example is installed in the store. A failed load leaves the old template and rows untouched. The example clears any previous file handle; Save cannot overwrite a previously opened community template through that handle.
+
+The demo uses the same generated 1080 × 1080 background as Breakdown and a PNG compiled from a small original SVG diagram with Main, Extra and Side card placeholders. Its single row is already complete, so it can be previewed immediately. The four example layer IDs are title (static), player, deck and decklist (dynamic). Images and synthetic user data remain unchanged when switching interface language. The original community files in Pictures/template are not consumed or modified.
+
+The final lesson explicitly explains the existing storage contract: `.dhdecktemplate` preserves the layout, not populated session rows or their text/images. It does not introduce a new project format or change archive/export behavior. The original renderer and default document are unchanged.
+
+Checks: `npm test`, `node scripts/check-guide.mjs`, `npm run build`, plus browser flows for cancellation/loading/failure/retry, row editing and duplication, static title selection, both themes, five languages, keyboard focus and PNG pixel comparisons. Native file-picker chrome and download completion require a normal browser if the in-app browser cannot report them.
+
+Browser results and reproducible checks are recorded in `docs/guide-verification.md`. The final five language outputs were pixel-identical; the theme comparison differed only in two color-channel values by 1/255, with unchanged geometry and document colors.

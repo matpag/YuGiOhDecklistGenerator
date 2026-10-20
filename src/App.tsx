@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Download, Eye, FileJson, FolderOpen, Moon, Save, SaveAll, Sun, X } from "lucide-react";
+import { BookOpen, ChevronDown, Download, Eye, FileJson, FolderOpen, Moon, Save, SaveAll, Sun, X } from "lucide-react";
+import { DecklistGuide } from "./components/DecklistGuide";
+import { GuideExampleConfirm } from "./components/GuideExampleConfirm";
+import { createGuideSession, GUIDE_BACKGROUND_FILE, GUIDE_DECKLIST_FILE } from "./data/guideExample";
 import { DecklistStage } from "./components/DecklistStage";
 import { EditorSidebar } from "./components/EditorSidebar";
 import { RightPanel } from "./components/RightPanel";
-import { TEMPLATE_FILE_ACCEPT } from "./lib/assets";
+import { TEMPLATE_FILE_ACCEPT, fileToAsset } from "./lib/assets";
 import { registerEmbeddedFonts } from "./lib/fonts";
 import { exportTemplateArchive, importTemplateArchive } from "./lib/templateArchive";
 import { createTemplateDocument, templateFileName } from "./lib/templateDocument";
@@ -45,7 +48,7 @@ function isEditableShortcutTarget(target: EventTarget | null) {
   }
 
   return Boolean(
-    target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"),
+    target.closest("input, textarea, select, [contenteditable='true'], [contenteditable=''], [role='dialog'], #decklist-guide"),
   );
 }
 
@@ -61,6 +64,12 @@ export default function App() {
     },
   ];
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const guideButtonRef = useRef<HTMLButtonElement>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const [guideConfirmOpen, setGuideConfirmOpen] = useState(false);
+  const [guideEditorRequest, setGuideEditorRequest] = useState(0);
+  const [guideRowsRequest, setGuideRowsRequest] = useState({ id: 0, focus: false });
   const layerClipboardRef = useRef<TemplateLayer | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
   const [templateFileHandle, setTemplateFileHandle] = useState<FileSystemFileHandle | null>(null);
@@ -159,6 +168,68 @@ export default function App() {
     const timeoutId = window.setTimeout(() => setNotice(null), 4200);
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
+
+  useEffect(() => {
+    if (!pngPreviewUrl) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPngPreviewUrl(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [pngPreviewUrl]);
+
+  function closeGuide() {
+    setGuideOpen(false);
+    guideButtonRef.current?.focus();
+  }
+
+  function showGuideControls(target: "title" | "rows") {
+    if (target === "title") {
+      const title = template.layers.find((layer) => layer.type === "text" && !layer.dynamic);
+      if (title) useProjectStore.getState().selectLayer(title.id);
+      setLeftSidebarCollapsed(false);
+      setGuideEditorRequest((request) => request + 1);
+    } else {
+      setRightSidebarCollapsed(false);
+      setGuideRowsRequest((request) => ({ id: request.id + 1, focus: true }));
+    }
+  }
+
+  async function loadGuideExample() {
+    setGuideConfirmOpen(false);
+    setBusyAction("opening");
+    try {
+      async function readImage(path: string, name: string, width: number, height: number) {
+        const response = await fetch(`${import.meta.env.BASE_URL}${path}`);
+        if (!response.ok) throw new Error("Guide image unavailable");
+        const blob = await response.blob();
+        const asset = await fileToAsset(new File([blob], name, { type: blob.type }));
+        const image = new Image();
+        image.src = asset.dataUrl;
+        await image.decode();
+        if (image.naturalWidth !== width || image.naturalHeight !== height) throw new Error("Invalid guide image");
+        return asset;
+      }
+      const [background, decklist] = await Promise.all([
+        readImage(GUIDE_BACKGROUND_FILE, "decklist-background-1080.png", 1080, 1080),
+        readImage(GUIDE_DECKLIST_FILE, "demo-decklist.png", 900, 760),
+      ]);
+      // Commit the template and populated row together only after both images are ready.
+      useProjectStore.setState(createGuideSession(background, decklist));
+      setTemplateFileHandle(null);
+      setOpenedTemplateName(null);
+      setFontRevision((revision) => revision + 1);
+      setLeftSidebarCollapsed(false);
+      setRightSidebarCollapsed(false);
+      setGuideRowsRequest((request) => ({ id: request.id + 1, focus: false }));
+      setGuideStep(1);
+      showNotice("guideExampleLoaded");
+    } catch {
+      showNotice("guideLoadError");
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   function showNotice(key: MessageKey, values?: MessageValues) {
     setNotice({ id: Date.now(), key, values });
@@ -315,7 +386,7 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell" aria-busy={busyAction !== null}>
+    <main className={`app-shell${guideOpen ? " app-shell--guide" : ""}`} aria-busy={busyAction !== null}>
       <h1 className="visually-hidden">{t("product")}</h1>
       <header className="topbar rf-suite-header rf-suite-header--compact">
         <a className="rf-brand" href={link("https://retroformats.com/")} aria-label={t("home")}>
@@ -423,6 +494,10 @@ export default function App() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === "dark" ? t("light") : t("dark")}</span>
           </button>
+          <button type="button" ref={guideButtonRef} title={t("guideOpen")} aria-controls="decklist-guide"
+            aria-expanded={guideOpen} disabled={busyAction !== null} onClick={() => setGuideOpen((open) => !open)}>
+            <BookOpen size={18} aria-hidden="true" /><span>{t("guideOpen")}</span>
+          </button>
           <LanguageControl />
           <details className="rf-suite-switcher">
             <summary>
@@ -440,22 +515,29 @@ export default function App() {
         </div>
       </header>
 
+      {guideOpen ? <DecklistGuide step={guideStep} onStepChange={setGuideStep} onClose={closeGuide}
+        onLoadExample={() => setGuideConfirmOpen(true)} onShowControls={showGuideControls}
+        onPreview={() => void dispatchExport("decklist-maker:preview-current")} busy={busyAction !== null} /> : null}
       <section
         className={`workspace ${leftSidebarCollapsed ? "workspace-left-collapsed" : ""} ${
           rightSidebarCollapsed ? "workspace-right-collapsed" : ""
         }`}
       >
         <EditorSidebar
+          guideRequest={guideEditorRequest}
           collapsed={leftSidebarCollapsed}
           onToggleCollapsed={() => setLeftSidebarCollapsed((collapsed) => !collapsed)}
         />
         <DecklistStage fontRevision={fontRevision} theme={theme} />
         <RightPanel
+          guideRequest={guideRowsRequest}
           collapsed={rightSidebarCollapsed}
           onToggleCollapsed={() => setRightSidebarCollapsed((collapsed) => !collapsed)}
         />
       </section>
 
+      {guideConfirmOpen ? <GuideExampleConfirm onCancel={() => setGuideConfirmOpen(false)}
+        onConfirm={() => void loadGuideExample()} /> : null}
       {busyAction ? (
         <div className="loading-backdrop" role="alert" aria-live="assertive">
           <div className="loading-dialog">
